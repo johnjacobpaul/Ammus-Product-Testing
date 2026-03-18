@@ -351,7 +351,7 @@ async function loadData(){
     if(d.miscBankIncomes) miscBankIncomes = d.miscBankIncomes;
     if(d.expCats) expCats = d.expCats;
     if(d.openBals) openBals = d.openBals;
-    if(d.PR && d.PR.length) PR.splice(0, PR.length, ...d.PR);
+    if(d.PR && d.PR.length) d.PR.forEach(p=>{ const ex=PR.find(x=>x.id===p.id); if(ex) ex.p=p.p; else PR.push(p); });
   }
 }
 
@@ -398,7 +398,7 @@ function importData(){
       if(d.miscBankIncomes) miscBankIncomes = d.miscBankIncomes;
       if(d.expCats) expCats = d.expCats;
       if(d.openBals) openBals = d.openBals;
-      if(d.PR && d.PR.length) PR.splice(0, PR.length, ...d.PR);
+      if(d.PR && d.PR.length) d.PR.forEach(p=>{ const ex=PR.find(x=>x.id===p.id); if(ex) ex.p=p.p; else PR.push(p); });
       await persistData();
       stk('Backup restored successfully!', 'ok');
       sp('Home');
