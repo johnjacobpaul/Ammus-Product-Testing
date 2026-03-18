@@ -107,8 +107,8 @@ body { background: #e0d5e9; overflow: hidden; }
 .ocrd-items{padding:0 14px 10px;font-size:12px;color:var(--text-mid);line-height:1.7;font-weight:500;}
 .ocrd-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--border);flex-wrap:wrap;gap:8px;}
 .ocrd-total{font-size:17px;font-weight:800;}
-.ocrd-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;width:100%;}
-.oact{padding:6px 10px;border-radius:9px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;border:none;white-space:nowrap;}
+.ocrd-actions{display:flex;gap:5px;flex-wrap:nowrap;margin-top:4px;width:100%;overflow:hidden;}
+.oact{padding:5px 7px;border-radius:9px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;border:none;white-space:nowrap;}
 .oact:active{opacity:.7;}
 .oact-complete{background:#ffedd5;color:#c2410c;}
 .oact-pay{background:#dcfce7;color:#166534;}
@@ -1105,7 +1105,7 @@ function orderSection(title,dotColor,badgeBg,badgeColor,statusKey,totalColor,lis
         <div class="ocrd-actions">
           ${statusKey==="outstanding"?`<button class="oact oact-complete" onclick="markComplete('${o.id}')">✓ Complete</button>`:""}
           ${statusKey==="outstanding"||statusKey==="completed"?`<button class="oact" style="background:#e0f2fe;color:#0369a1;" onclick="editOrder('${o.id}')">✏️ Edit</button>`:""}
-          ${statusKey==="completed"?`<button class="oact oact-pay" onclick="openPayModal('${o.id}')">💳 Record Payment</button>`:""}
+          ${statusKey==="completed"?`<button class="oact oact-pay" onclick="openPayModal('${o.id}')">💳 Pay</button>`:""}
           ${statusKey==="paid"?`<span class="oact-paid-badge">✓ ${o.payMethod==="gpay"?"GPay":"Cash"}</span>`:""}
           <button class="oact oact-invoice" onclick="openInvoice('${o.id}')">🧾 Invoice</button>
           <button class="oact oact-del" onclick="deleteOrder('${o.id}')">🗑️ Delete</button>
@@ -1193,7 +1193,7 @@ function rc(){
         </div>
         <div class="fg"><label class="fl">Customer Mobile</label>
           <div class="pw"><div class="px">+91</div>
-            <input id="inp-mob" class="fi" type="tel" maxlength="10" placeholder="10-digit number" value="${os.mob}" oninput="onMobInput(this.value)" onpaste="onMobPaste(event)"/>
+            <input id="inp-mob" class="fi" type="tel" placeholder="10-digit number" value="${os.mob}" oninput="onMobInput(this.value)" onpaste="onMobPaste(event)"/>
           </div><div id="mob-hint"></div>
         </div>
         <div class="fg" style="position:relative;"><label class="fl">Customer Name</label>
