@@ -656,19 +656,29 @@ function editOrder(id){
   const o=ords.find(x=>x.id===id);
   if(!o) return;
   editingOrder=id;
-  // Parse date back from display format to YYYY-MM-DD for the date input
-  // o.date is stored as display string like "18 Mar 2026", need to reverse
-  // Actually os.date is display format but dd is display format too
-  // Let's load it into os for editing
+  // Convert display date (e.g. "18 Mar 2026") back to YYYY-MM-DD for the date input
+  // If ddRaw was stored use it directly, otherwise parse the display string
+  let ddForInput = o.ddRaw || '';
+  if(!ddForInput && o.dd){
+    try {
+      const months={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+      const parts = o.dd.split(' '); // ["18","Mar","2026"]
+      if(parts.length===3){
+        const day=parts[0].padStart(2,'0');
+        const mon=String(months[parts[1]]+1).padStart(2,'0');
+        ddForInput = `${parts[2]}-${mon}-${day}`;
+      }
+    } catch(e){ ddForInput=''; }
+  }
   os={
     id: o.id,
     date: o.date,
     name: o.name,
     mob: o.mob,
-    dd: o.ddRaw || o.dd, // ddRaw stored if available, else use display
+    dd: ddForInput,
     items: o.items.map(i=>({pid:i.pid, qty:i.qty}))
   };
-  vw="order"; render();
+  pg="Home"; vw="order"; render();
 }
 
 function saveEditedOrder(){
@@ -685,7 +695,7 @@ function saveEditedOrder(){
   else ex.name=name;
   scheduleSave();
   stk("Order "+editingOrder+" updated!","ok");
-  editingOrder=null; vw="home"; render();
+  editingOrder=null; sp("Orders");
 }
 function openPayModal(id){payModal={open:true,orderId:id,selected:""};render();}
 function selectPayMethod(m){
@@ -1172,7 +1182,7 @@ function rc(){
   if(pg==="Home"&&vw==="order"){
     el.innerHTML=`<div class="main">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
-        <div class="bk" onclick="editingOrder=null;vw='home';render()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#403844" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="bk" onclick="(function(){const wasEditing=editingOrder;editingOrder=null;sp(wasEditing?'Orders':'Home');})()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#403844" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></div>
         <div><div style="font-size:17px;font-weight:800;color:var(--text-dark);">${editingOrder?'Edit Order':'New Order'}</div><div style="font-size:12px;color:var(--text-muted);font-weight:600;">${editingOrder?'Modify items or details':'Fill in all details below'}</div></div>
         <div class="oid-badge" style="margin-left:auto;">${os.id}</div>
       </div>
