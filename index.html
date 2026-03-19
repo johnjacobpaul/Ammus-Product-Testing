@@ -286,7 +286,7 @@ body { background: #e0d5e9; overflow: hidden; }
       <button class="menu-item" onclick="spMenu('Configure Expense Categories')">Configure Expense Categories</button>
       <button class="menu-item" onclick="spMenu('Export / Import Data')">Export / Import Data</button>
       <button class="menu-item" onclick="spMenu('Reset App')">Reset App</button>
-      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3.4 | 19.03.2026</div>
+      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3.4 | 20.03.2026</div>
     </div>
 
     <div class="hdr">
@@ -309,7 +309,14 @@ body { background: #e0d5e9; overflow: hidden; }
 // ── Supabase Config (replace with your project values) ───────
 const SUPABASE_URL = 'https://gzvhibqqxpbudytqzjjn.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6dmhpYnFxeHBidWR5dHF6ampuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NjE4NzcsImV4cCI6MjA4OTIzNzg3N30.UzJ4HgIRxbVH7lnZRs82P-Rdt18YDY59aStSCfwYSIE';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    storage: window.localStorage
+  }
+});
 
 const _PIN = '05049596';
 let isLoggedIn = false;
@@ -409,13 +416,17 @@ function importData(){
 
 // ── Session restore on page load ──────────────────────────────
 (async () => {
-  const { data: { session } } = await sb.auth.getSession();
-  if(session){
-    isLoggedIn = true;
-    currentUserId = session.user.id;
-    await loadData();
-    document.getElementById('login-screen').style.display = 'none';
-    render();
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if(session){
+      isLoggedIn = true;
+      currentUserId = session.user.id;
+      await loadData();
+      document.getElementById('login-screen').style.display = 'none';
+      render();
+    }
+  } catch(e) {
+    // Network error — login screen remains visible
   }
 })();
 
