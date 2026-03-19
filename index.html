@@ -286,7 +286,7 @@ body { background: #e0d5e9; overflow: hidden; }
       <button class="menu-item" onclick="spMenu('Configure Expense Categories')">Configure Expense Categories</button>
       <button class="menu-item" onclick="spMenu('Export / Import Data')">Export / Import Data</button>
       <button class="menu-item" onclick="spMenu('Reset App')">Reset App</button>
-      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3 | 18.03.2026</div>
+      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3.2 | 19.03.2026</div>
     </div>
 
     <div class="hdr">
@@ -529,13 +529,14 @@ function getStartOfMonth(){const d=new Date();return fmtDateLocal(new Date(d.get
 let pg="Home",vw="home",custs=[],ords=[],ps="",exps=[],dcbList=[],miscBankIncomes=[],menuOpen=false;
 let cfStart = getStartOfMonth(), cfEnd = fmtDateLocal(new Date());
 let ordStart = getStartOfMonth(), ordEnd = fmtDateLocal(new Date());
+let expFilterStart = getStartOfMonth(), expFilterEnd = fmtDateLocal(new Date());
 
-let expCats=["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials"];
+let expCats=["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount"];
 let os={id:"",date:"",name:"",mob:"",dd:"",items:[]};
 let editingOrder=null;
 let exForm={id:"",date:"",cat:"Labour - Annamma",mode:"cash",amt:""};
 let dcbForm={id:"",date:"",amt:""};
-let payModal={open:false,orderId:"",selected:""};
+let payModal={open:false,orderId:"",selected:"",payDate:""};
 let invoiceOrderId=null;
 let openBals = { cash: {date: fmtDateLocal(new Date()), amt: 0}, bank: {date: fmtDateLocal(new Date()), amt: 0} };
 let tempBankBal = "";
@@ -559,7 +560,7 @@ function toggleMenu(){
   }
 }
 function spMenu(page){pg=page;menuOpen=false;vw="home";ps="";tempBankBal="";editingOrder=null;render();}
-function sp(p){pg=p;vw="home";ps="";tempBankBal="";invoiceOrderId=null;editingOrder=null;payModal={open:false,orderId:"",selected:""};render();}
+function sp(p){pg=p;vw="home";ps="";tempBankBal="";invoiceOrderId=null;editingOrder=null;payModal={open:false,orderId:"",selected:"",payDate:""};render();}
 function so(){editingOrder=null;os={id:"ORD-"+gid().replace("ID-",""),date:tds(),name:"",mob:"",dd:"",items:[{pid:"",qty:""}]};vw="order";render();}
 
 function setThisMonth(type) {
@@ -623,10 +624,11 @@ function saveOpenBal(type){
 function logVariance(expected, actual, mode) {
   const diff = expected - actual;
   if(diff === 0) return;
-  exps.push({id:"EXP-"+gid().replace("ID-",""), date:tdi(), cat:"Personal", mode:mode, amt:diff});
-  if(!expCats.includes("Personal")) expCats.push("Personal");
+  const cat = "Variance Reconciliation";
+  exps.push({id:"EXP-"+gid().replace("ID-",""), date:tdi(), cat, mode, amt:diff});
+  if(!expCats.includes(cat)) expCats.push(cat);
   scheduleSave();
-  stk("Variance reconciled as Personal expense", "ok");
+  stk("Variance reconciled as "+cat, "ok");
   rc();
 }
 
@@ -697,7 +699,7 @@ function saveEditedOrder(){
   stk("Order "+editingOrder+" updated!","ok");
   editingOrder=null; sp("Orders");
 }
-function openPayModal(id){payModal={open:true,orderId:id,selected:""};render();}
+function openPayModal(id){payModal={open:true,orderId:id,selected:"",payDate:tdi()};render();}
 function selectPayMethod(m){
   payModal.selected=m;
   document.querySelectorAll(".pay-opt").forEach(b=>b.classList.remove("selected"));
@@ -708,11 +710,11 @@ function confirmPayment(){
   if(!payModal.selected)return;
   const method=payModal.selected;
   const o=ords.find(x=>x.id===payModal.orderId);
-  if(o){o.status="paid";o.payMethod=method;scheduleSave();}
+  if(o){o.status="paid";o.payMethod=method;o.payDate=payModal.payDate||tdi();scheduleSave();}
   stk("Payment recorded!","ok");
-  payModal={open:false,orderId:"",selected:""};render();
+  payModal={open:false,orderId:"",selected:"",payDate:""};render();
 }
-function closePayModal(){payModal={open:false,orderId:"",selected:""};render();}
+function closePayModal(){payModal={open:false,orderId:"",selected:"",payDate:""};render();}
 function openInvoice(id){invoiceOrderId=id;render();}
 function closeInvoice(){invoiceOrderId=null;render();}
 
@@ -1087,7 +1089,8 @@ function invoiceHTML(o){
 }
 
 function orderSection(title,dotColor,badgeBg,badgeColor,statusKey,totalColor,list){
-  const filtered=list.filter(o=>o.status===statusKey);
+  let filtered=list.filter(o=>o.status===statusKey);
+  if(statusKey==="outstanding") filtered=filtered.slice().sort((a,b)=>new Date(a.date)-new Date(b.date));
   return`<div class="sec-header"><div class="sec-dot" style="background:${dotColor};"></div>
     <span class="sec-title" style="color:${dotColor};">${title}</span>
     <span class="sec-count" style="background:${badgeBg};color:${badgeColor};">${filtered.length}</span></div>
@@ -1106,7 +1109,7 @@ function orderSection(title,dotColor,badgeBg,badgeColor,statusKey,totalColor,lis
           ${statusKey==="outstanding"?`<button class="oact oact-complete" onclick="markComplete('${o.id}')">✓ Complete</button>`:""}
           ${statusKey==="outstanding"||statusKey==="completed"?`<button class="oact" style="background:#e0f2fe;color:#0369a1;" onclick="editOrder('${o.id}')">✏️ Edit</button>`:""}
           ${statusKey==="completed"?`<button class="oact oact-pay" onclick="openPayModal('${o.id}')">💳 Pay</button>`:""}
-          ${statusKey==="paid"?`<span class="oact-paid-badge">✓ ${o.payMethod==="gpay"?"GPay":"Cash"}</span>`:""}
+          ${statusKey==="paid"?`<span class="oact-paid-badge">✓ ${o.payMethod==="gpay"?"GPay":"Cash"}${o.payDate?' · '+fdate(o.payDate):''}</span>`:""}
           <button class="oact oact-invoice" onclick="openInvoice('${o.id}')">🧾 Invoice</button>
           <button class="oact oact-del" onclick="deleteOrder('${o.id}')">🗑️ Delete</button>
         </div>
@@ -1123,6 +1126,9 @@ function rc(){
     el.innerHTML=`<div class="modal-overlay"><div class="modal-sheet">
       <div class="modal-title">Record Payment</div>
       <div class="modal-sub">Order ${o.id} · ₹${Math.round(o.total)} · ${o.name}</div>
+      <div style="margin-bottom:16px;"><label class="fl">Payment Date</label>
+        <input type="date" class="fi" value="${payModal.payDate}" onchange="payModal.payDate=this.value"/>
+      </div>
       <div id="pay-cash" class="pay-opt" onclick="selectPayMethod('cash')">
         <div class="pay-icon" style="background:#f0fdf4;">💵</div>
         <div><div class="pay-label">Cash</div><div class="pay-sub">Physical cash payment</div></div>
@@ -1176,6 +1182,13 @@ function rc(){
         </div>
         <button class="sbtn" onclick="saveDcb()">Save Balance</button>
       </div>
+      ${dcbList.length>0?`
+      <div class="sl" style="margin-top:8px;">History (last ${dcbList.length} entries)</div>
+      ${dcbList.slice().reverse().map(d=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;background:var(--white);border-radius:14px;padding:12px 14px;margin-bottom:8px;box-shadow:0 2px 6px rgba(64,56,68,.04);">
+          <div style="font-size:13px;font-weight:700;color:var(--text-dark);">${fdate(d.date)}</div>
+          <div style="font-size:15px;font-weight:800;color:var(--pink);">₹${Math.round(d.amt)}</div>
+        </div>`).join("")}`:''}
     </div>`;return;
   }
 
@@ -1613,7 +1626,7 @@ function rc(){
             <div class="stat-col" style="text-align:right;"><div class="stat-lbl">Variance</div><div class="stat-val" style="color:${v>=0?'#16a34a':'#dc2626'};">${v>=0?'+':''}₹${Math.round(v)}</div></div>
           </div>
         </div>
-        ${v !== 0 ? `<button class="sbtn" style="margin-top:24px; background:var(--charcoal);" onclick="logVariance(${expected}, ${actual}, 'cash')">Reconcile as Personal Expense</button>` : ''}
+        ${v !== 0 ? `<button class="sbtn" style="margin-top:24px; background:var(--charcoal);" onclick="logVariance(${expected}, ${actual}, 'cash')">Reconcile Variance</button>` : ''}
       </div>`;
     } else if(vw==="var_bank"){
       const ob = openBals.bank;
@@ -1651,24 +1664,62 @@ function rc(){
             <div class="stat-col" style="text-align:right;"><div class="stat-lbl">Variance</div><div class="stat-val" style="color:${v>=0?'#16a34a':'#dc2626'};">${v>=0?'+':''}₹${Math.round(v)}</div></div>
           </div>
         </div>
-        ${v !== 0 ? `<button class="sbtn" style="margin-top:24px; background:var(--charcoal);" onclick="logVariance(${expected}, ${actual}, 'gpay')">Reconcile as Personal Expense</button>` : ''}
+        ${v !== 0 ? `<button class="sbtn" style="margin-top:24px; background:var(--charcoal);" onclick="logVariance(${expected}, ${actual}, 'gpay')">Reconcile Variance</button>` : ''}
+        <button class="sbtn" style="margin-top:12px; background:#2563eb;" onclick="vw='conf_misc';render();">+ Add Miscellaneous Income</button>
       </div>`;
     }
   } else if(pg==="Expenses"){
-    el.innerHTML=`<div class="main"><div class="pg-title">Expenses Log</div>
-      ${exps.length===0?`<div class="em"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01"/><path d="M18 12h.01"/></svg><div class="et">No expenses logged</div><div style="font-size:13px;font-weight:500;">Record them from the Home tab</div></div>`
-      :exps.slice().reverse().map(e=>`<div class="ocrd" style="padding:14px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div>
-            <div style="font-size:15px;font-weight:800;color:var(--text-dark);">${e.cat}</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;font-weight:600;">${fdate(e.date)} · ${e.mode.toUpperCase()}</div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:16px;font-weight:800;color:var(--pink);">₹${e.amt}</div>
-            <button style="margin-top:6px;background:#fee2e2;color:#991b1b;border:none;padding:5px 10px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;" onclick="deleteExpense('${e.id}')">Delete</button>
-          </div>
+    const expStart = (typeof expFilterStart!=='undefined'&&expFilterStart) ? expFilterStart : getStartOfMonth();
+    const expEnd   = (typeof expFilterEnd!=='undefined'&&expFilterEnd)     ? expFilterEnd   : tdi();
+    let es = new Date(expStart); es.setHours(0,0,0,0);
+    let ee = new Date(expEnd);   ee.setHours(23,59,59,999);
+    const filteredExps = exps.filter(e=>{ const d=new Date(e.date); return d>=es&&d<=ee; });
+    // Build category totals for bar chart
+    const catTotals = {};
+    filteredExps.forEach(e=>{ catTotals[e.cat]=(catTotals[e.cat]||0)+e.amt; });
+    const catEntries = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]);
+    const maxVal = catEntries.length ? catEntries[0][1] : 1;
+    const barColors = ['#b81273','#6d28d9','#2563eb','#16a34a','#ca8a04','#dc2626','#0891b2','#7c3aed','#c2410c','#065f46'];
+    const chartHTML = catEntries.length===0 ? '' : `
+      <div class="card" style="margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:800;color:var(--text-dark);margin-bottom:14px;">Spend by Category</div>
+        ${catEntries.map(([cat,val],i)=>`
+          <div style="margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <span style="font-size:11px;font-weight:700;color:var(--text-dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%;">${cat}</span>
+              <span style="font-size:11px;font-weight:800;color:${barColors[i%barColors.length]};">₹${Math.round(val)}</span>
+            </div>
+            <div style="background:var(--border);border-radius:99px;height:8px;overflow:hidden;">
+              <div style="height:8px;border-radius:99px;background:${barColors[i%barColors.length]};width:${Math.round((val/maxVal)*100)}%;transition:width .4s;"></div>
+            </div>
+          </div>`).join("")}
+        <div style="border-top:1px dashed var(--border);margin-top:12px;padding-top:10px;display:flex;justify-content:space-between;">
+          <span style="font-size:12px;font-weight:800;color:var(--text-dark);">Total</span>
+          <span style="font-size:13px;font-weight:800;color:var(--pink);">₹${Math.round(filteredExps.reduce((s,e)=>s+e.amt,0))}</span>
         </div>
-      </div>`).join("")}</div>`;
+      </div>`;
+    el.innerHTML=`<div class="main"><div class="pg-title">Expenses Log</div>
+      <div class="dr-wrap">
+        <input type="date" class="dr-inp" value="${expStart}" onchange="expFilterStart=this.value;rc()" />
+        <span style="font-size:12px;color:var(--text-muted);font-weight:700;">to</span>
+        <input type="date" class="dr-inp" value="${expEnd}" onchange="expFilterEnd=this.value;rc()" />
+      </div>
+      ${chartHTML}
+      ${filteredExps.length===0
+        ?`<div class="em"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01"/><path d="M18 12h.01"/></svg><div class="et">No expenses in range</div><div style="font-size:13px;font-weight:500;">Try adjusting the date range</div></div>`
+        :filteredExps.slice().reverse().map(e=>`<div class="ocrd" style="padding:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div style="font-size:15px;font-weight:800;color:var(--text-dark);">${e.cat}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;font-weight:600;">${fdate(e.date)} · ${e.mode.toUpperCase()}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:16px;font-weight:800;color:var(--pink);">₹${e.amt}</div>
+              <button style="margin-top:6px;background:#fee2e2;color:#991b1b;border:none;padding:5px 10px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;" onclick="deleteExpense('${e.id}')">Delete</button>
+            </div>
+          </div>
+        </div>`).join("")}
+    </div>`;
   } else if(pg==="Customers"){
     el.innerHTML=`<div class="main"><div class="pg-title">Customers</div>
       <div class="sl">${custs.length} customer${custs.length!==1?"s":""} registered</div>
@@ -1736,8 +1787,9 @@ function render(){
 async function confirmReset(){
   if(!confirm('Are you absolutely sure? ALL orders, expenses, customers and balances will be permanently deleted.')) return;
   custs=[]; ords=[]; exps=[]; dcbList=[]; miscBankIncomes=[];
-  expCats=["Labour","Raw Materials","Personal"];
+  expCats=["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount"];
   openBals={cash:{date:tdi(),amt:0},bank:{date:tdi(),amt:0}};
+  expFilterStart=getStartOfMonth(); expFilterEnd=tdi();
   await persistData();
   stk('App has been reset','ok');
   sp('Home');
