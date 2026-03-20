@@ -287,7 +287,7 @@ body { background: #e0d5e9; overflow: hidden; }
       <button class="menu-item" onclick="spMenu('Rate Adjustment Logs')">Rate Adjustment Logs</button>
       <button class="menu-item" onclick="spMenu('Export / Import Data')">Export / Import Data</button>
       <button class="menu-item" onclick="spMenu('Reset App')">Reset App</button>
-      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3.5 | 20.03.2026</div>
+      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3.5.1 | 20.03.2026</div>
     </div>
 
     <div class="hdr">
@@ -1022,14 +1022,15 @@ async function generatePDF(o){
   o.items.forEach((it,idx) => {
     const prod = PR.find(x=>x.id===parseInt(it.pid));
     if(!prod) return;
-    const lineAmt = prod.p * (parseFloat(it.qty)||0);
+    const lineAmt = (it.adjRate!==undefined?it.adjRate:prod.p) * (parseFloat(it.qty)||0);
     doc.setFont("helvetica","bold");
     doc.setFontSize(8);
     doc.text(prod.n, pad+2, y);
     doc.setFont("helvetica","normal");
     doc.setFontSize(7);
     doc.setTextColor(120, 120, 120);
-    doc.text("Rs."+prod.p+"/"+prod.u, pad+2, y+4);
+    const displayRate = it.adjRate!==undefined ? it.adjRate : prod.p;
+    doc.text("Rs."+displayRate+"/"+prod.u, pad+2, y+4);
     doc.setTextColor(30, 30, 30);
     doc.setFontSize(8);
     const qtyVal = parseFloat(it.qty)||0;
@@ -1139,9 +1140,9 @@ function invoiceHTML(o){
       </div>
       <div style="margin-bottom:8px;">
         ${o.items.map(it=>{const prod=PR.find(x=>x.id===parseInt(it.pid));if(!prod)return"";return`<div class="inv-item-row">
-          <div><div class="inv-item-name">${prod.n}</div><div class="inv-item-unit">₹${prod.p}/${prod.u}</div></div>
+          <div><div class="inv-item-name">${prod.n}</div><div class="inv-item-unit">₹${it.adjRate!==undefined?it.adjRate:prod.p}/${prod.u}</div></div>
           <div class="inv-item-qty">${(()=>{const q=parseFloat(it.qty)||0;return(prod.u==='kg'&&q>0&&q<1)?(Math.round(q*1000)+'g'):(q+(prod.u==='kg'?'kg':prod.u));})()}</div>
-          <div class="inv-item-total">₹${Math.round(prod.p*(parseFloat(it.qty)||0))}</div>
+          <div class="inv-item-total">₹${Math.round((it.adjRate!==undefined?it.adjRate:prod.p)*(parseFloat(it.qty)||0))}</div>
         </div>`;}).join("")}
       </div>
       <div class="inv-total-row"><span class="inv-total-lbl">Total Amount</span><span class="inv-total-amt">₹${Math.round(o.total)}</span></div>
