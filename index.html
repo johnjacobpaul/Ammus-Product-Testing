@@ -287,7 +287,7 @@ body { background: #e0d5e9; overflow: hidden; }
       <button class="menu-item" onclick="spMenu('Rate Adjustment Logs')">Rate Adjustment Logs</button>
       <button class="menu-item" onclick="spMenu('Export / Import Data')">Export / Import Data</button>
       <button class="menu-item" onclick="spMenu('Reset App')">Reset App</button>
-      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3.5.2 | 20.03.2026</div>
+      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3.5.3| 20.03.2026</div>
     </div>
 
     <div class="hdr">
@@ -360,7 +360,7 @@ async function loadData(){
     if(d.expCats) expCats = d.expCats;
     if(d.openBals) openBals = d.openBals;
     if(d.rateAdjLogs) rateAdjLogs = d.rateAdjLogs;
-    if(d.PR && d.PR.length) d.PR.forEach(p=>{ const ex=PR.find(x=>x.id===p.id); if(ex) ex.p=p.p; else PR.push(p); });
+    if(d.PR && d.PR.length) d.PR.forEach(p=>{ const ex=PR.find(x=>x.id===p.id); if(ex){ if(p.userModified) ex.p=p.p; ex.userModified=p.userModified; } else PR.push(p); });
   }
 }
 
@@ -408,7 +408,7 @@ function importData(){
       if(d.expCats) expCats = d.expCats;
       if(d.openBals) openBals = d.openBals;
       if(d.rateAdjLogs) rateAdjLogs = d.rateAdjLogs;
-      if(d.PR && d.PR.length) d.PR.forEach(p=>{ const ex=PR.find(x=>x.id===p.id); if(ex) ex.p=p.p; else PR.push(p); });
+      if(d.PR && d.PR.length) d.PR.forEach(p=>{ const ex=PR.find(x=>x.id===p.id); if(ex){ if(p.userModified) ex.p=p.p; ex.userModified=p.userModified; } else PR.push(p); });
       await persistData();
       stk('Backup restored successfully!', 'ok');
       sp('Home');
@@ -871,7 +871,7 @@ function openRateAdjModal(i){
 
 function updateProductPrice(id, val){
   const p=PR.find(x=>x.id===parseInt(id));
-  if(p&&!isNaN(val)){p.p=parseFloat(val);scheduleSave();}
+  if(p&&!isNaN(val)){p.p=parseFloat(val);p.userModified=true;scheduleSave();}
 }
 
 function addProduct(){
