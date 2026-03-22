@@ -287,7 +287,7 @@ body { background: #e0d5e9; overflow: hidden; }
       <button class="menu-item" onclick="spMenu('Rate Adjustment Logs')">Rate Adjustment Logs</button>
       <button class="menu-item" onclick="spMenu('Export / Import Data')">Export / Import Data</button>
       <button class="menu-item" onclick="spMenu('Reset App')">Reset App</button>
-      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3.7 | 22.03.2026</div>
+      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3.8 | 22.03.2026</div>
     </div>
 
     <div class="hdr">
@@ -356,6 +356,7 @@ async function loadData(){
     if(d.ords)  ords  = d.ords;
     if(d.exps)  exps  = d.exps;
     if(d.dcbList) dcbList = d.dcbList;
+    if(d.bankDcbList) bankDcbList = d.bankDcbList;
     if(d.miscBankIncomes) miscBankIncomes = d.miscBankIncomes;
     if(d.expCats) expCats = d.expCats;
     if(d.openBals) openBals = d.openBals;
@@ -371,7 +372,7 @@ function scheduleSave(){
 }
 async function persistData(){
   if(!currentUserId) return;
-  const payload = { custs, ords, exps, dcbList, miscBankIncomes, expCats, openBals, PR, rateAdjLogs };
+  const payload = { custs, ords, exps, dcbList, bankDcbList, miscBankIncomes, expCats, openBals, PR, rateAdjLogs };
   await sb.from('app_data').upsert(
     { user_id: currentUserId, data: payload, updated_at: new Date().toISOString() },
     { onConflict: 'user_id' }
@@ -380,7 +381,7 @@ async function persistData(){
 
 // ── Export / Import ───────────────────────────────────────────
 function exportData(){
-  const payload = { version: 1, exportedAt: new Date().toISOString(), custs, ords, exps, dcbList, miscBankIncomes, expCats, openBals, PR, rateAdjLogs };
+  const payload = { version: 1, exportedAt: new Date().toISOString(), custs, ords, exps, dcbList, bankDcbList, miscBankIncomes, expCats, openBals, PR, rateAdjLogs };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -404,6 +405,7 @@ function importData(){
       if(d.ords)  ords  = d.ords;
       if(d.exps)  exps  = d.exps;
       if(d.dcbList) dcbList = d.dcbList;
+      if(d.bankDcbList) bankDcbList = d.bankDcbList;
       if(d.miscBankIncomes) miscBankIncomes = d.miscBankIncomes;
       if(d.expCats) expCats = d.expCats;
       if(d.openBals) openBals = d.openBals;
@@ -541,17 +543,19 @@ const IC=['<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 function fmtDateLocal(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return y+"-"+m+"-"+day;}
 function getStartOfMonth(){const d=new Date();return fmtDateLocal(new Date(d.getFullYear(),d.getMonth(),1));}
 
-let pg="Home",vw="home",custs=[],ords=[],ps="",exps=[],dcbList=[],miscBankIncomes=[],menuOpen=false,rateAdjLogs=[];
+let pg="Home",vw="home",custs=[],ords=[],ps="",exps=[],dcbList=[],bankDcbList=[],miscBankIncomes=[],menuOpen=false,rateAdjLogs=[];
 let cfStart = getStartOfMonth(), cfEnd = fmtDateLocal(new Date());
 let ordStart = getStartOfMonth(), ordEnd = fmtDateLocal(new Date());
+let ordStatusFilter = "all";
 let expFilterStart = getStartOfMonth(), expFilterEnd = fmtDateLocal(new Date());
 
-let expCats=["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount"];
+let expCats=["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount","Missing Payments"];
 let os={id:"",date:"",name:"",mob:"",dd:"",items:[]};
 let editingOrder=null;
 let exForm={id:"",date:"",cat:"Labour - Annamma",mode:"cash",amt:""};
 let dcbForm={id:"",date:"",amt:""};
-let payModal={open:false,orderId:"",selected:"",payDate:""};
+let bankDcbForm={id:"",date:"",amt:""};
+let payModal={open:false,orderId:"",selected:"",payDate:"",payAmt:""};
 let invoiceOrderId=null;
 let openBals = { cash: {date: fmtDateLocal(new Date()), amt: 0}, bank: {date: fmtDateLocal(new Date()), amt: 0} };
 let tempBankBal = "";
@@ -577,7 +581,7 @@ function toggleMenu(){
   }
 }
 function spMenu(page){pg=page;menuOpen=false;vw="home";ps="";tempBankBal="";bankVarCalculated=false;miscIncomeInline={show:false,date:"",amt:""};editingOrder=null;render();}
-function sp(p){pg=p;vw="home";ps="";tempBankBal="";bankVarCalculated=false;miscIncomeInline={show:false,date:"",amt:""};invoiceOrderId=null;editingOrder=null;payModal={open:false,orderId:"",selected:"",payDate:""};render();}
+function sp(p){pg=p;vw="home";ps="";tempBankBal="";bankVarCalculated=false;miscIncomeInline={show:false,date:"",amt:""};invoiceOrderId=null;editingOrder=null;payModal={open:false,orderId:"",selected:"",payDate:"",payAmt:""};render();}
 function so(){editingOrder=null;os={id:"ORD-"+gid().replace("ID-",""),date:tds(),name:"",mob:"",dd:"",items:[{pid:"",qty:""}]};vw="order";render();}
 
 function setThisMonth(type) {
@@ -608,7 +612,7 @@ function saveExpense(){
 }
 function deleteExpense(id){exps=exps.filter(e=>e.id!==id);scheduleSave();stk("Expense deleted","ok");render();}
 
-function openDcbForm(){dcbForm={id:"DCB-"+gid().replace("ID-",""),date:tdi(),amt:""};vw="dcb";render();}
+function openDcbForm(){dcbForm={id:"DCB-"+gid().replace("ID-",""),date:tdi(),amt:""};vw="dcb_cash";render();}
 function saveDcb(){
   if(!dcbForm.amt||isNaN(dcbForm.amt)){stk("Please enter a valid amount","err");return;}
   // Freeze the variance at the moment of saving
@@ -624,7 +628,26 @@ function saveDcb(){
   dcbList.sort((a,b)=>new Date(a.date)-new Date(b.date));
   if(dcbList.length>30) dcbList = dcbList.slice(-30);
   scheduleSave();
-  stk("Closing balance saved!","ok");vw="home";render();
+  stk("Cash closing balance saved!","ok");vw="home";render();
+}
+
+function openBankDcbForm(){bankDcbForm={id:"BDCB-"+gid().replace("ID-",""),date:tdi(),amt:""};vw="dcb_bank";render();}
+function saveBankDcb(){
+  if(!bankDcbForm.amt||isNaN(bankDcbForm.amt)){stk("Please enter a valid amount","err");return;}
+  const ob = openBals.bank;
+  const obDate = new Date(ob.date); obDate.setHours(0,0,0,0);
+  const dcbDate = new Date(bankDcbForm.date); dcbDate.setHours(23,59,59,999);
+  const bankIn  = ords.filter(o=>o.status==='paid'&&o.payMethod==='gpay'&&new Date(o.date)>=obDate&&new Date(o.date)<=dcbDate).reduce((s,o)=>s+o.total,0);
+  const miscIn  = miscBankIncomes.filter(m=>new Date(m.date)>=obDate&&new Date(m.date)<=dcbDate).reduce((s,m)=>s+m.amt,0);
+  const bankOut = exps.filter(e=>e.mode==='gpay'&&new Date(e.date)>=obDate&&new Date(e.date)<=dcbDate).reduce((s,e)=>s+e.amt,0);
+  const expected = ob.amt + bankIn + miscIn - bankOut;
+  const actual   = parseFloat(bankDcbForm.amt);
+  const variance = actual - expected;
+  bankDcbList.push({...bankDcbForm, amt:actual, bankIn, miscIn, bankOut, expected, variance, obAmt:ob.amt, obDate:ob.date});
+  bankDcbList.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(bankDcbList.length>30) bankDcbList = bankDcbList.slice(-30);
+  scheduleSave();
+  stk("Bank closing balance saved!","ok");vw="home";render();
 }
 
 function saveMiscBank(){
@@ -740,7 +763,12 @@ function saveEditedOrder(){
   stk("Order "+editingOrder+" updated!","ok");
   editingOrder=null; sp("Orders");
 }
-function openPayModal(id){payModal={open:true,orderId:id,selected:"",payDate:tdi()};render();}
+function openPayModal(id){
+  const o=ords.find(x=>x.id===id);
+  const remaining = o ? (o.total - (o.amtPaid||0)) : 0;
+  payModal={open:true,orderId:id,selected:"",payDate:tdi(),payAmt:String(Math.round(remaining))};
+  render();
+}
 function selectPayMethod(m){
   payModal.selected=m;
   document.querySelectorAll(".pay-opt").forEach(b=>b.classList.remove("selected"));
@@ -751,11 +779,23 @@ function confirmPayment(){
   if(!payModal.selected)return;
   const method=payModal.selected;
   const o=ords.find(x=>x.id===payModal.orderId);
-  if(o){o.status="paid";o.payMethod=method;o.payDate=payModal.payDate||tdi();scheduleSave();}
-  stk("Payment recorded!","ok");
-  payModal={open:false,orderId:"",selected:"",payDate:""};render();
+  if(!o) return;
+  const entered = parseFloat(payModal.payAmt);
+  const remaining = o.total - (o.amtPaid||0);
+  if(isNaN(entered)||entered<=0){stk("Enter a valid amount","err");return;}
+  if(entered>remaining+0.01){stk("Amount cannot exceed remaining balance ₹"+Math.round(remaining),"err");return;}
+  const newAmtPaid = (o.amtPaid||0) + entered;
+  if(Math.abs(newAmtPaid - o.total) < 0.01){
+    o.status="paid"; o.payMethod=method; o.payDate=payModal.payDate||tdi(); o.amtPaid=o.total;
+    stk("Payment recorded — order fully paid!","ok");
+  } else {
+    o.status="partial"; o.payMethod=method; o.lastPayDate=payModal.payDate||tdi(); o.amtPaid=newAmtPaid;
+    stk("Partial payment of ₹"+Math.round(entered)+" recorded","ok");
+  }
+  scheduleSave();
+  payModal={open:false,orderId:"",selected:"",payDate:"",payAmt:""};render();
 }
-function closePayModal(){payModal={open:false,orderId:"",selected:"",payDate:""};render();}
+function closePayModal(){payModal={open:false,orderId:"",selected:"",payDate:"",payAmt:""};render();}
 function openInvoice(id){invoiceOrderId=id;render();}
 function closeInvoice(){invoiceOrderId=null;render();}
 
@@ -1167,6 +1207,8 @@ function orderSection(title,dotColor,badgeBg,badgeColor,statusKey,totalColor,lis
   ${filtered.length===0?`<div style="background:#fff;border-radius:14px;padding:14px;text-align:center;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:12px;">No orders here</div>`
   :filtered.map(o=>{
     const lines=o.items.map(it=>{const p=PR.find(x=>x.id===parseInt(it.pid));return p?`${p.n} × ${it.qty}${p.u}`:""}).filter(Boolean).join(" · ");
+    const amtPaid = o.amtPaid||0;
+    const remaining = o.total - amtPaid;
     return`<div class="ocrd">
       <div class="ocrd-head">
         <div style="display:flex;justify-content:space-between;"><span class="ocrd-id">${o.id}</span><span class="ocrd-date">${o.date}</span></div>
@@ -1174,11 +1216,14 @@ function orderSection(title,dotColor,badgeBg,badgeColor,statusKey,totalColor,lis
       </div>
       <div class="ocrd-items">${lines}</div>
       <div class="ocrd-footer">
-        <span class="ocrd-total" style="color:${totalColor};">₹${Math.round(o.total)}</span>
+        <div>
+          <span class="ocrd-total" style="color:${totalColor};">₹${Math.round(o.total)}</span>
+          ${statusKey==="partial"?`<div style="font-size:11px;font-weight:700;color:#f97316;margin-top:2px;">Paid ₹${Math.round(amtPaid)} · Due ₹${Math.round(remaining)}</div>`:''}
+        </div>
         <div class="ocrd-actions">
           ${statusKey==="outstanding"?`<button class="oact oact-complete" onclick="markComplete('${o.id}')">✓ Complete</button>`:""}
-          ${statusKey==="outstanding"||statusKey==="completed"?`<button class="oact" style="background:#e0f2fe;color:#0369a1;" onclick="editOrder('${o.id}')">✏️ Edit</button>`:""}
-          ${statusKey==="completed"?`<button class="oact oact-pay" onclick="openPayModal('${o.id}')">💳 Pay</button>`:""}
+          ${statusKey==="outstanding"||statusKey==="completed"||statusKey==="partial"?`<button class="oact" style="background:#e0f2fe;color:#0369a1;" onclick="editOrder('${o.id}')">✏️ Edit</button>`:""}
+          ${statusKey==="completed"||statusKey==="partial"?`<button class="oact oact-pay" onclick="openPayModal('${o.id}')">💳 Pay</button>`:""}
           ${statusKey==="paid"?`<span class="oact-paid-badge">✓ ${o.payMethod==="gpay"?"GPay":"Cash"}${o.payDate?' · '+fdate(o.payDate):''}</span>`:""}
           <button class="oact oact-invoice" onclick="openInvoice('${o.id}')">🧾 Invoice</button>
           <button class="oact oact-del" onclick="deleteOrder('${o.id}')">🗑️ Delete</button>
@@ -1193,11 +1238,18 @@ function rc(){
   if(invoiceOrderId){const o=ords.find(x=>x.id===invoiceOrderId);if(o){el.innerHTML=invoiceHTML(o);return;}}
   if(payModal.open){
     const o=ords.find(x=>x.id===payModal.orderId);if(!o)return;
+    const remaining = Math.round(o.total - (o.amtPaid||0));
+    const amtPaid = Math.round(o.amtPaid||0);
     el.innerHTML=`<div class="modal-overlay"><div class="modal-sheet">
       <div class="modal-title">Record Payment</div>
-      <div class="modal-sub">Order ${o.id} · ₹${Math.round(o.total)} · ${o.name}</div>
-      <div style="margin-bottom:16px;"><label class="fl">Payment Date</label>
+      <div class="modal-sub">Order ${o.id} · ${o.name}</div>
+      ${amtPaid>0?`<div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:12px;font-weight:700;color:#c2410c;">Already paid: ₹${amtPaid} · Remaining: ₹${remaining}</div>`:`<div style="background:var(--lavender);border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:12px;font-weight:700;color:var(--text-dark);">Order total: ₹${Math.round(o.total)}</div>`}
+      <div style="margin-bottom:14px;"><label class="fl">Payment Date</label>
         <input type="date" class="fi" value="${payModal.payDate}" onchange="payModal.payDate=this.value"/>
+      </div>
+      <div style="margin-bottom:14px;"><label class="fl">Amount Received (₹)</label>
+        <input type="number" class="fi" placeholder="${remaining}" value="${payModal.payAmt}" oninput="payModal.payAmt=this.value" max="${remaining}"/>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;font-weight:600;">Enter less than ₹${remaining} to record a partial payment</div>
       </div>
       <div id="pay-cash" class="pay-opt" onclick="selectPayMethod('cash')">
         <div class="pay-icon" style="background:#f0fdf4;">💵</div>
@@ -1243,21 +1295,61 @@ function rc(){
     el.innerHTML=`<div class="main">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
         <div class="bk" onclick="vw='home';render()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#403844" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></div>
-        <div><div style="font-size:17px;font-weight:800;color:var(--text-dark);">Closing Balance</div><div style="font-size:12px;color:var(--text-muted);font-weight:600;">Submit end-of-day balance</div></div>
+        <div><div style="font-size:17px;font-weight:800;color:var(--text-dark);">Daily Closing Balance</div><div style="font-size:12px;color:var(--text-muted);font-weight:600;">Select type to record</div></div>
+      </div>
+      <button class="abtn" style="background:#f0fdf4;border:1.5px solid #bbf7d0;" onclick="openDcbForm()">
+        <div class="ico" style="background:#16a34a22;border:1.5px solid #bbf7d0;"><span style="font-size:20px;">💵</span></div>
+        <div style="flex:1;"><div class="at">Cash DCB</div><div class="adt">Record end-of-day cash balance</div></div>
+      </button>
+      <button class="abtn" style="background:#eff6ff;border:1.5px solid #bfdbfe;" onclick="openBankDcbForm()">
+        <div class="ico" style="background:#2563eb22;border:1.5px solid #bfdbfe;"><span style="font-size:20px;">🏦</span></div>
+        <div style="flex:1;"><div class="at">Bank DCB</div><div class="adt">Record end-of-day bank balance</div></div>
+      </button>
+    </div>`;return;
+  }
+
+  if(vw==="dcb_cash"){
+    el.innerHTML=`<div class="main">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+        <div class="bk" onclick="vw='dcb';render()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#403844" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div><div style="font-size:17px;font-weight:800;color:var(--text-dark);">Cash Closing Balance</div><div style="font-size:12px;color:var(--text-muted);font-weight:600;">Submit end-of-day cash</div></div>
       </div>
       <div class="card">
         <div class="fg"><label class="fl">Date</label><input type="date" class="fi" value="${dcbForm.date}" onchange="dcbForm.date=this.value"/></div>
         <div class="fg"><label class="fl">Amount (₹)</label>
           <input type="number" class="fi" placeholder="0" value="${dcbForm.amt}" oninput="dcbForm.amt=this.value"/>
         </div>
-        <button class="sbtn" onclick="saveDcb()">Save Balance</button>
+        <button class="sbtn" onclick="saveDcb()">Save Cash Balance</button>
       </div>
       ${dcbList.length>0?`
-      <div class="sl" style="margin-top:8px;">History (last ${dcbList.length} entries)</div>
+      <div class="sl" style="margin-top:8px;">Cash History (last ${dcbList.length} entries)</div>
       ${dcbList.slice().reverse().map(d=>`
         <div style="display:flex;justify-content:space-between;align-items:center;background:var(--white);border-radius:14px;padding:12px 14px;margin-bottom:8px;box-shadow:0 2px 6px rgba(64,56,68,.04);">
           <div style="font-size:13px;font-weight:700;color:var(--text-dark);">${fdate(d.date)}</div>
-          <div style="font-size:15px;font-weight:800;color:var(--pink);">₹${Math.round(d.amt)}</div>
+          <div style="font-size:15px;font-weight:800;color:#16a34a;">₹${Math.round(d.amt)}</div>
+        </div>`).join("")}`:''}
+    </div>`;return;
+  }
+
+  if(vw==="dcb_bank"){
+    el.innerHTML=`<div class="main">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+        <div class="bk" onclick="vw='dcb';render()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#403844" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div><div style="font-size:17px;font-weight:800;color:var(--text-dark);">Bank Closing Balance</div><div style="font-size:12px;color:var(--text-muted);font-weight:600;">Submit end-of-day bank balance</div></div>
+      </div>
+      <div class="card">
+        <div class="fg"><label class="fl">Date</label><input type="date" class="fi" value="${bankDcbForm.date}" onchange="bankDcbForm.date=this.value"/></div>
+        <div class="fg"><label class="fl">Amount (₹)</label>
+          <input type="number" class="fi" placeholder="0" value="${bankDcbForm.amt}" oninput="bankDcbForm.amt=this.value"/>
+        </div>
+        <button class="sbtn" style="background:#2563eb;" onclick="saveBankDcb()">Save Bank Balance</button>
+      </div>
+      ${bankDcbList.length>0?`
+      <div class="sl" style="margin-top:8px;">Bank History (last ${bankDcbList.length} entries)</div>
+      ${bankDcbList.slice().reverse().map(d=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;background:var(--white);border-radius:14px;padding:12px 14px;margin-bottom:8px;box-shadow:0 2px 6px rgba(64,56,68,.04);">
+          <div style="font-size:13px;font-weight:700;color:var(--text-dark);">${fdate(d.date)}</div>
+          <div style="font-size:15px;font-weight:800;color:#2563eb;">₹${Math.round(d.amt)}</div>
         </div>`).join("")}`:''}
     </div>`;return;
   }
@@ -1299,7 +1391,7 @@ function rc(){
   
   if(pg==="Home"){
     el.innerHTML=`<div class="main"><div class="pg-title">Good day! 👋</div><div class="sl">Quick Actions</div>
-      ${BT.map((b,i)=>`<button class="abtn" style="background:${b.bg};border:1.5px solid ${b.bc};" onclick="${i===0?'so()':i===1?'openExpenseForm()':'openDcbForm()'}">
+      ${BT.map((b,i)=>`<button class="abtn" style="background:${b.bg};border:1.5px solid ${b.bc};" onclick="${i===0?'so()':i===1?'openExpenseForm()':'vw=\'dcb\';render()'}">
         <div class="ico" style="background:${b.ic}22;border:1.5px solid ${b.bc};"><span style="color:${b.ic};">${IC[i]}</span></div>
         <div style="flex:1;"><div class="at">${b.l}</div><div class="adt">${b.d}</div></div>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${b.ic}" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
@@ -1307,29 +1399,33 @@ function rc(){
   } else if(pg==="Orders"){
     let s = new Date(ordStart); s.setHours(0,0,0,0);
     let e = new Date(ordEnd); e.setHours(23,59,59,999);
-    const visibleOrds = ords.filter(o => {
-      let d = new Date(o.date);
-      return d >= s && d <= e;
-    });
-    const runTotal = visibleOrds.reduce((sum, o) => sum + o.total, 0);
+    const visibleOrds = ords.filter(o => { let d=new Date(o.date); return d>=s&&d<=e; });
+    const runTotal = visibleOrds.reduce((sum,o)=>sum+o.total,0);
     const cntOutstanding = ords.filter(o=>o.status==="outstanding").length;
-    const cntPending = ords.filter(o=>o.status==="completed").length;
-    
+    const cntPending     = ords.filter(o=>o.status==="completed").length;
+    const cntPartial     = ords.filter(o=>o.status==="partial").length;
+
+    const filterTabs = ["all","outstanding","completed","partial","paid"];
+    const filterLabels = {all:"All",outstanding:"Outstanding",completed:"Pending Pay",partial:"Partially Paid",paid:"Paid"};
+    const filteredByStatus = ordStatusFilter==="all" ? visibleOrds : visibleOrds.filter(o=>o.status===ordStatusFilter);
+
     el.innerHTML=`<div class="main">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <div class="pg-title" style="margin-bottom:0;">Orders</div>
         <button style="background:var(--pink-pale);color:var(--pink);border:none;padding:6px 12px;border-radius:12px;font-size:11px;font-weight:800;cursor:pointer;" onclick="setThisMonth('ord')">Month to Date</button>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-        <div style="background:#fff0f0;border:1.5px solid #fecaca;border-radius:16px;padding:14px;">
-          <div style="font-size:10px;font-weight:800;color:#dc2626;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Outstanding</div>
-          <div style="font-size:28px;font-weight:800;color:#dc2626;">${cntOutstanding}</div>
-          <div style="font-size:11px;color:#dc2626;font-weight:600;opacity:.7;">order${cntOutstanding!==1?'s':''}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+        <div style="background:#fff0f0;border:1.5px solid #fecaca;border-radius:14px;padding:12px;">
+          <div style="font-size:9px;font-weight:800;color:#dc2626;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Outstanding</div>
+          <div style="font-size:24px;font-weight:800;color:#dc2626;">${cntOutstanding}</div>
         </div>
-        <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:16px;padding:14px;">
-          <div style="font-size:10px;font-weight:800;color:#f97316;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Awaiting Payment</div>
-          <div style="font-size:28px;font-weight:800;color:#f97316;">${cntPending}</div>
-          <div style="font-size:11px;color:#f97316;font-weight:600;opacity:.7;">order${cntPending!==1?'s':''}</div>
+        <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:14px;padding:12px;">
+          <div style="font-size:9px;font-weight:800;color:#f97316;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Awaiting Pay</div>
+          <div style="font-size:24px;font-weight:800;color:#f97316;">${cntPending}</div>
+        </div>
+        <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:14px;padding:12px;">
+          <div style="font-size:9px;font-weight:800;color:#d97706;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Part. Paid</div>
+          <div style="font-size:24px;font-weight:800;color:#d97706;">${cntPartial}</div>
         </div>
       </div>
       <div class="dr-wrap">
@@ -1337,14 +1433,27 @@ function rc(){
         <span style="font-size:12px;color:var(--text-muted);font-weight:700;">to</span>
         <input type="date" class="dr-inp" value="${ordEnd}" onchange="ordEnd=this.value; rc()" />
       </div>
-      <div class="stat-card" style="margin-bottom: 20px;">
-        <div class="stat-lbl">Total Received Order Value</div>
+      <div class="stat-card" style="margin-bottom:14px;">
+        <div class="stat-lbl">Total Order Value (period)</div>
         <div class="stat-val" style="color:var(--pink);">₹${Math.round(runTotal)}</div>
       </div>
-      ${visibleOrds.length===0?`<div class="em"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg><div class="et">No orders found</div><div style="font-size:13px;font-weight:500;">Try adjusting the date range</div></div>`
-      :orderSection("Outstanding","#dc2626","#fee2e2","#991b1b","outstanding","#dc2626", visibleOrds)
-      +orderSection("Completed — Pending Payment","#f97316","#ffedd5","#c2410c","completed","#f97316", visibleOrds)
-      +orderSection("Paid","#16a34a","#dcfce7","#166534","paid","#16a34a", visibleOrds)}</div>`;
+      <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;padding-bottom:2px;">
+        ${filterTabs.map(f=>`<button onclick="ordStatusFilter='${f}';rc();" style="flex-shrink:0;padding:7px 12px;border-radius:20px;border:1.5px solid ${ordStatusFilter===f?'var(--pink)':'var(--border)'};background:${ordStatusFilter===f?'var(--pink-pale)':'var(--white)'};color:${ordStatusFilter===f?'var(--pink)':'var(--text-muted)'};font-size:11px;font-weight:800;font-family:inherit;cursor:pointer;">${filterLabels[f]}</button>`).join("")}
+      </div>
+      ${filteredByStatus.length===0
+        ?`<div class="em"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg><div class="et">No orders found</div><div style="font-size:13px;font-weight:500;">Try adjusting filters or date range</div></div>`
+        :( ordStatusFilter!=="all"
+          ? orderSection(filterLabels[ordStatusFilter],
+              ordStatusFilter==="outstanding"?"#dc2626":ordStatusFilter==="completed"?"#f97316":ordStatusFilter==="partial"?"#d97706":"#16a34a",
+              ordStatusFilter==="outstanding"?"#fee2e2":ordStatusFilter==="completed"?"#ffedd5":ordStatusFilter==="partial"?"#fef3c7":"#dcfce7",
+              ordStatusFilter==="outstanding"?"#991b1b":ordStatusFilter==="completed"?"#c2410c":ordStatusFilter==="partial"?"#92400e":"#166534",
+              ordStatusFilter, ordStatusFilter==="outstanding"?"#dc2626":ordStatusFilter==="completed"?"#f97316":ordStatusFilter==="partial"?"#d97706":"#16a34a",
+              filteredByStatus)
+          : orderSection("Outstanding","#dc2626","#fee2e2","#991b1b","outstanding","#dc2626",visibleOrds)
+            +orderSection("Completed — Pending Payment","#f97316","#ffedd5","#c2410c","completed","#f97316",visibleOrds)
+            +orderSection("Partially Paid","#d97706","#fef3c7","#92400e","partial","#d97706",visibleOrds)
+            +orderSection("Paid","#16a34a","#dcfce7","#166534","paid","#16a34a",visibleOrds)
+        )}</div>`;
   } else if(pg==="Cashflow"){
     if (vw === "cf_monthly") {
         const mStats = {};
@@ -1487,6 +1596,43 @@ function rc(){
             </div>
           </div>`;
         
+        // Expense split donut
+        const gpayExp  = cfExps.filter(e=>e.mode==='gpay').reduce((s,e)=>s+e.amt,0);
+        const cashExp  = cfExps.filter(e=>e.mode==='cash').reduce((s,e)=>s+e.amt,0);
+        const expDonutTotal = gpayExp + cashExp;
+        let ea = 0;
+        const eSliceGpay = donutSlice(gpayExp, expDonutTotal, ea, '#6d28d9'); ea += expDonutTotal>0?(gpayExp/expDonutTotal)*2*Math.PI:0;
+        const eSliceCash = donutSlice(cashExp, expDonutTotal, ea, '#dc2626');
+        const eGpayPct = expDonutTotal>0 ? Math.round(gpayExp/expDonutTotal*100) : 0;
+        const eCashPct = expDonutTotal>0 ? Math.round(cashExp/expDonutTotal*100) : 0;
+        const expDonutHTML = expDonutTotal===0 ? '' : `
+          <div class="card" style="margin-bottom:16px;">
+            <div style="font-size:13px;font-weight:800;color:var(--text-dark);margin-bottom:14px;">Expense Split</div>
+            <div style="display:flex;align-items:center;gap:16px;">
+              <svg width="160" height="160" viewBox="0 0 160 160" style="flex-shrink:0;">
+                ${eSliceGpay}${eSliceCash}
+                <text x="80" y="76" text-anchor="middle" font-size="11" font-weight="800" fill="#403844" font-family="Plus Jakarta Sans,sans-serif">₹${Math.round(expDonutTotal/1000)>0?Math.round(expDonutTotal/1000)+'k':Math.round(expDonutTotal)}</text>
+                <text x="80" y="89" text-anchor="middle" font-size="9" font-weight="600" fill="#958a9e" font-family="Plus Jakarta Sans,sans-serif">Total Out</text>
+              </svg>
+              <div style="flex:1;display:flex;flex-direction:column;gap:12px;">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                    <div style="display:flex;align-items:center;gap:6px;"><div style="width:10px;height:10px;border-radius:3px;background:#6d28d9;flex-shrink:0;"></div><span style="font-size:12px;font-weight:700;color:var(--text-dark);">GPay</span></div>
+                    <span style="font-size:12px;font-weight:800;color:#6d28d9;">${eGpayPct}%</span>
+                  </div>
+                  <div style="font-size:13px;font-weight:800;color:var(--text-dark);">₹${Math.round(gpayExp)}</div>
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                    <div style="display:flex;align-items:center;gap:6px;"><div style="width:10px;height:10px;border-radius:3px;background:#dc2626;flex-shrink:0;"></div><span style="font-size:12px;font-weight:700;color:var(--text-dark);">Cash</span></div>
+                    <span style="font-size:12px;font-weight:800;color:#dc2626;">${eCashPct}%</span>
+                  </div>
+                  <div style="font-size:13px;font-weight:800;color:var(--text-dark);">₹${Math.round(cashExp)}</div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+
         el.innerHTML=`<div class="main">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
             <div class="bk" onclick="sp('Home')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#403844" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></div>
@@ -1517,6 +1663,7 @@ function rc(){
             </div>
           </div>
           ${donutHTML}
+          ${expDonutHTML}
         </div>`;
     }
   } else if(pg==="Configure Products"){
@@ -1721,18 +1868,46 @@ function rc(){
     }
   } else if(pg==="Variance"){
     if(vw==="home"){
+      // Compute net variance summary from latest snapshots
+      const latestCash = dcbList.length ? dcbList[dcbList.length-1] : null;
+      const latestBank = bankDcbList.length ? bankDcbList[bankDcbList.length-1] : null;
+      const cashV = (latestCash && latestCash.variance!==undefined) ? latestCash.variance : null;
+      const bankV = (latestBank && latestBank.variance!==undefined) ? latestBank.variance : null;
+      const netV  = (cashV!==null && bankV!==null) ? cashV+bankV : null;
       el.innerHTML=`<div class="main">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
           <div class="bk" onclick="sp('Home')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#403844" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></div>
           <div><div style="font-size:17px;font-weight:800;color:var(--text-dark);">Variance</div></div>
         </div>
+        <div class="stat-card" style="margin-bottom:16px;">
+          <div class="stat-lbl">Net Variance (Cash + Bank)</div>
+          <div class="stat-val" style="color:${netV===null?'var(--text-muted)':netV>=0?'#16a34a':'#dc2626'};font-size:28px;">
+            ${netV===null?'—':(netV>=0?'+':'')+'₹'+Math.round(netV)}
+          </div>
+          <div class="stat-row" style="margin-top:12px;padding-top:12px;">
+            <div class="stat-col">
+              <div class="stat-lbl">Cash</div>
+              <div style="font-size:16px;font-weight:800;color:${cashV===null?'var(--text-muted)':cashV>=0?'#16a34a':'#dc2626'};">
+                ${cashV===null?'No DCB':(cashV>=0?'+':'')+'₹'+Math.round(cashV)}
+              </div>
+              ${latestCash?`<div style="font-size:10px;color:var(--text-muted);font-weight:600;">as at ${fdate(latestCash.date)}</div>`:''}
+            </div>
+            <div class="stat-col" style="text-align:right;">
+              <div class="stat-lbl">Bank</div>
+              <div style="font-size:16px;font-weight:800;color:${bankV===null?'var(--text-muted)':bankV>=0?'#16a34a':'#dc2626'};">
+                ${bankV===null?'No DCB':(bankV>=0?'+':'')+'₹'+Math.round(bankV)}
+              </div>
+              ${latestBank?`<div style="font-size:10px;color:var(--text-muted);font-weight:600;">as at ${fdate(latestBank.date)}</div>`:''}
+            </div>
+          </div>
+        </div>
         <button class="abtn" style="background:#fcfbfe;border:1.5px solid var(--border);" onclick="vw='var_cash'; render();">
           <div class="ico" style="background:#f0fdf4;border:1.5px solid #bbf7d0;"><span style="font-size:20px;">💵</span></div>
-          <div style="flex:1;"><div class="at">Cash Variance</div><div class="adt">Calculate against DCB</div></div>
+          <div style="flex:1;"><div class="at">Cash Variance</div><div class="adt">Based on latest Cash DCB</div></div>
         </button>
         <button class="abtn" style="background:#fcfbfe;border:1.5px solid var(--border);" onclick="vw='var_bank'; render();">
           <div class="ico" style="background:#eff6ff;border:1.5px solid #bfdbfe;"><span style="font-size:20px;">🏦</span></div>
-          <div style="flex:1;"><div class="at">Bank Variance</div><div class="adt">Calculate against manual entry</div></div>
+          <div style="flex:1;"><div class="at">Bank Variance</div><div class="adt">Based on latest Bank DCB</div></div>
         </button>
       </div>`;
     } else if(vw==="var_cash"){
@@ -1795,61 +1970,85 @@ function rc(){
         }
       }
     } else if(vw==="var_bank"){
-      const ob = openBals.bank;
-      const obDate = new Date(ob.date); obDate.setHours(0,0,0,0);
-      const bankIn  = ords.filter(o=>o.status==='paid'&&o.payMethod==='gpay'&&new Date(o.date)>=obDate).reduce((s,o)=>s+o.total,0);
-      const miscIn  = miscBankIncomes.filter(m=>new Date(m.date)>=obDate).reduce((s,m)=>s+m.amt,0);
-      const bankOut = exps.filter(e=>e.mode==='gpay'&&new Date(e.date)>=obDate).reduce((s,e)=>s+e.amt,0);
-      const expected = ob.amt + bankIn + miscIn - bankOut;
-      const actual   = tempBankBal === "" ? 0 : parseFloat(tempBankBal);
-      const v        = actual - expected;
-
-      el.innerHTML=`<div class="main">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
-          <div class="bk" onclick="vw='home';render()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#403844" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></div>
-          <div><div style="font-size:17px;font-weight:800;color:var(--text-dark);">Bank Variance</div></div>
-        </div>
-        <div class="card" style="margin-bottom:16px;">
-          <label class="fl">Today's Actual Bank Balance (₹)</label>
-          <input type="number" class="fi" style="margin-bottom:10px;" placeholder="0" value="${tempBankBal}" oninput="tempBankBal=this.value;bankVarCalculated=false;" />
-          <button class="sbtn" style="margin-top:0;" onclick="bankVarCalculated=true;rc();">Calculate</button>
-        </div>
-        ${bankVarCalculated ? `
-        <div class="stat-card">
-          <div class="stat-row" style="border-top:none;margin-top:0;padding-top:0;">
-            <div class="stat-col"><div class="stat-lbl">Previous Closing Balance (${fdate(ob.date)})</div><div class="stat-val">₹${Math.round(ob.amt)}</div></div>
+      if(!bankDcbList.length){
+        el.innerHTML=`<div class="main">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+            <div class="bk" onclick="vw='home';render()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#403844" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></div>
+            <div><div style="font-size:17px;font-weight:800;color:var(--text-dark);">Bank Variance</div></div>
           </div>
-          <div class="stat-row">
-            <div class="stat-col"><div class="stat-lbl">GPay Inflow</div><div class="stat-val" style="color:#16a34a;">+ ₹${Math.round(bankIn)}</div></div>
-            <div class="stat-col" style="text-align:right;"><div class="stat-lbl">Misc Bank In</div><div class="stat-val" style="color:#16a34a;">+ ₹${Math.round(miscIn)}</div></div>
+          <div class="em"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
+            <div class="et">No Bank DCB entry yet</div>
+            <div style="font-size:13px;font-weight:500;">Submit a Bank Closing Balance first</div>
+            <button class="sbtn" style="margin-top:16px;background:#2563eb;" onclick="openBankDcbForm()">Submit Bank DCB</button>
           </div>
-          <div class="stat-row">
-            <div class="stat-col"><div class="stat-lbl">GPay Outflow</div><div class="stat-val" style="color:#dc2626;">- ₹${Math.round(bankOut)}</div></div>
-            <div class="stat-col" style="text-align:right;"><div class="stat-lbl">Expected Balance</div><div class="stat-val">₹${Math.round(expected)}</div></div>
+          <div style="margin-top:16px;">
+            <button class="sbtn" style="background:#2563eb;" onclick="miscIncomeInline.show=!miscIncomeInline.show;miscIncomeInline.date=miscIncomeInline.date||'${tdi()}';rc();">
+              ${miscIncomeInline.show ? '✕ Cancel' : '+ Add Miscellaneous Income'}
+            </button>
+            ${miscIncomeInline.show ? `
+            <div class="card" style="margin-top:12px;">
+              <div class="fg"><label class="fl">Date</label>
+                <input type="date" class="fi" value="${miscIncomeInline.date||tdi()}" onchange="miscIncomeInline.date=this.value"/>
+              </div>
+              <div class="fg"><label class="fl">Amount (₹)</label>
+                <input type="number" class="fi" placeholder="0" value="${miscIncomeInline.amt}" oninput="miscIncomeInline.amt=this.value"/>
+              </div>
+              <button class="sbtn" style="margin-top:4px;" onclick="saveMiscBankInline()">Save Income</button>
+            </div>` : ''}
           </div>
-          <div class="stat-row" style="background:var(--offwhite); margin:-18px; margin-top:14px; padding:18px; border-radius:0 0 16px 16px;">
-            <div class="stat-col"><div class="stat-lbl">Actual Balance (Input)</div><div class="stat-val">₹${Math.round(actual)}</div></div>
-            <div class="stat-col" style="text-align:right;"><div class="stat-lbl">Variance</div><div class="stat-val" style="color:${v>=0?'#16a34a':'#dc2626'};">${v>=0?'+':''}₹${Math.round(v)}</div></div>
-          </div>
-        </div>
-        ${v !== 0 ? `<button class="sbtn" style="margin-top:16px; background:var(--charcoal);" onclick="logVariance(${expected}, ${actual}, 'gpay')">Reconcile Variance</button>` : ''}` : ''}
-        <div style="margin-top:16px;">
-          <button class="sbtn" style="background:#2563eb;" onclick="miscIncomeInline.show=!miscIncomeInline.show;miscIncomeInline.date=miscIncomeInline.date||'${tdi()}';rc();">
-            ${miscIncomeInline.show ? '✕ Cancel' : '+ Add Miscellaneous Income'}
-          </button>
-          ${miscIncomeInline.show ? `
-          <div class="card" style="margin-top:12px;">
-            <div class="fg"><label class="fl">Date</label>
-              <input type="date" class="fi" value="${miscIncomeInline.date||tdi()}" onchange="miscIncomeInline.date=this.value"/>
+        </div>`;
+      } else {
+        const latest = bankDcbList[bankDcbList.length-1];
+        const bankIn  = latest.bankIn;
+        const miscIn  = latest.miscIn;
+        const bankOut = latest.bankOut;
+        const expected= latest.expected;
+        const actual  = latest.amt;
+        const v       = latest.variance;
+        const obAmt   = latest.obAmt;
+        const obDate  = latest.obDate;
+        el.innerHTML=`<div class="main">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+            <div class="bk" onclick="vw='home';render()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#403844" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></div>
+            <div><div style="font-size:17px;font-weight:800;color:var(--text-dark);">Bank Variance</div>
+              <div style="font-size:12px;color:var(--text-muted);font-weight:600;">Snapshot as at ${fdate(latest.date)}</div>
             </div>
-            <div class="fg"><label class="fl">Amount (₹)</label>
-              <input type="number" class="fi" placeholder="0" value="${miscIncomeInline.amt}" oninput="miscIncomeInline.amt=this.value"/>
+          </div>
+          <div class="stat-card">
+            <div class="stat-row" style="border-top:none;margin-top:0;padding-top:0;">
+              <div class="stat-col"><div class="stat-lbl">Opening Balance (${fdate(obDate)})</div><div class="stat-val">₹${Math.round(obAmt)}</div></div>
             </div>
-            <button class="sbtn" style="margin-top:4px;" onclick="saveMiscBankInline()">Save Income</button>
-          </div>` : ''}
-        </div>
-      </div>`;
-    }
+            <div class="stat-row">
+              <div class="stat-col"><div class="stat-lbl">GPay Inflow</div><div class="stat-val" style="color:#16a34a;">+ ₹${Math.round(bankIn)}</div></div>
+              <div class="stat-col" style="text-align:right;"><div class="stat-lbl">Misc Bank In</div><div class="stat-val" style="color:#16a34a;">+ ₹${Math.round(miscIn)}</div></div>
+            </div>
+            <div class="stat-row">
+              <div class="stat-col"><div class="stat-lbl">GPay Outflow</div><div class="stat-val" style="color:#dc2626;">- ₹${Math.round(bankOut)}</div></div>
+              <div class="stat-col" style="text-align:right;"><div class="stat-lbl">Expected Balance</div><div class="stat-val">₹${Math.round(expected)}</div></div>
+            </div>
+            <div class="stat-row" style="background:var(--offwhite); margin:-18px; margin-top:14px; padding:18px; border-radius:0 0 16px 16px;">
+              <div class="stat-col"><div class="stat-lbl">Bank DCB Submitted (${fdate(latest.date)})</div><div class="stat-val">₹${Math.round(actual)}</div></div>
+              <div class="stat-col" style="text-align:right;"><div class="stat-lbl">Variance</div><div class="stat-val" style="color:${v>=0?'#16a34a':'#dc2626'};">${v>=0?'+':''}₹${Math.round(v)}</div></div>
+            </div>
+          </div>
+          ${v !== 0 ? `<button class="sbtn" style="margin-top:16px; background:var(--charcoal);" onclick="logVariance(${expected}, ${actual}, 'gpay')">Reconcile Variance</button>` : ''}
+          <div style="margin-top:16px;">
+            <button class="sbtn" style="background:#2563eb;" onclick="miscIncomeInline.show=!miscIncomeInline.show;miscIncomeInline.date=miscIncomeInline.date||'${tdi()}';rc();">
+              ${miscIncomeInline.show ? '✕ Cancel' : '+ Add Miscellaneous Income'}
+            </button>
+            ${miscIncomeInline.show ? `
+            <div class="card" style="margin-top:12px;">
+              <div class="fg"><label class="fl">Date</label>
+                <input type="date" class="fi" value="${miscIncomeInline.date||tdi()}" onchange="miscIncomeInline.date=this.value"/>
+              </div>
+              <div class="fg"><label class="fl">Amount (₹)</label>
+                <input type="number" class="fi" placeholder="0" value="${miscIncomeInline.amt}" oninput="miscIncomeInline.amt=this.value"/>
+              </div>
+              <button class="sbtn" style="margin-top:4px;" onclick="saveMiscBankInline()">Save Income</button>
+            </div>` : ''}
+          </div>
+        </div>`;
+      }
   } else if(pg==="Expenses"){
     const expStart = (typeof expFilterStart!=='undefined'&&expFilterStart) ? expFilterStart : getStartOfMonth();
     const expEnd   = (typeof expFilterEnd!=='undefined'&&expFilterEnd)     ? expFilterEnd   : tdi();
@@ -1993,8 +2192,8 @@ function render(){
 
 async function confirmReset(){
   if(!confirm('Are you absolutely sure? ALL orders, expenses, customers and balances will be permanently deleted.')) return;
-  custs=[]; ords=[]; exps=[]; dcbList=[]; miscBankIncomes=[];
-  expCats=["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount"];
+  custs=[]; ords=[]; exps=[]; dcbList=[]; bankDcbList=[]; miscBankIncomes=[];
+  expCats=["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount","Missing Payments"];
   openBals={cash:{date:tdi(),amt:0},bank:{date:tdi(),amt:0}};
   expFilterStart=getStartOfMonth(); expFilterEnd=tdi();
   await persistData();
