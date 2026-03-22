@@ -586,6 +586,13 @@ function spMenu(page){pg=page;menuOpen=false;vw="home";ps="";tempBankBal="";bank
 function sp(p){pg=p;vw="home";ps="";tempBankBal="";bankVarCalculated=false;miscIncomeInline={show:false,date:"",amt:""};invoiceOrderId=null;editingOrder=null;ordSearch="";payModal={open:false,orderId:"",selected:"",payDate:"",payAmt:""};render();}
 function so(){editingOrder=null;os={id:"ORD-"+gid().replace("ID-",""),date:tds(),name:"",mob:"",dd:"",items:[{pid:"",qty:""}]};vw="order";render();}
 
+function updateOrdSearch(val){
+  ordSearch = val;
+  rc();
+  const inp = document.getElementById('ord-search-inp');
+  if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+}
+
 function setThisMonth(type) {
   const d = new Date();
   const s = fmtDateLocal(new Date(d.getFullYear(), d.getMonth(), 1));
@@ -1443,7 +1450,7 @@ function rc(){
       </div>
       <div style="position:relative;margin-bottom:12px;">
         <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        <input class="fi" style="padding-left:34px;" placeholder="Search by name or mobile..." value="${ordSearch}" oninput="ordSearch=this.value;rc()"/>
+        <input id="ord-search-inp" class="fi" style="padding-left:34px;" placeholder="Search by name or mobile..." value="${ordSearch}" oninput="updateOrdSearch(this.value)"/>
         ${ordSearch?`<div onclick="ordSearch='';rc();" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;color:var(--text-muted);line-height:1;">✕</div>`:''}
       </div>
       <div class="stat-card" style="margin-bottom:14px;">
