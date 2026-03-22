@@ -167,6 +167,7 @@ body { background: #e0d5e9; overflow: hidden; }
 
 /* Floating Elevated Bottom Navigation */
 .bottomnav{margin: 0 16px 24px 16px; background:var(--white);display:flex;z-index:100;padding:6px;border-radius:24px;box-shadow:0 8px 32px rgba(64,56,68,.1); flex-shrink:0;}
+.filter-scroll::-webkit-scrollbar{display:none;}
 .bnb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 4px;cursor:pointer;border:none;background:transparent;font-family:inherit;transition:all 0.2s;border-radius:18px;}
 .bnb .lbl{font-size:10px;font-weight:700;color:var(--text-muted);white-space:nowrap;}
 .bnb .ico2{width:24px;height:24px;display:flex;align-items:center;justify-content:center;}
@@ -619,7 +620,7 @@ function saveDcb(){
   const ob = openBals.cash;
   const obDate = new Date(ob.date); obDate.setHours(0,0,0,0);
   const dcbDate = new Date(dcbForm.date); dcbDate.setHours(23,59,59,999);
-  const cashIn  = ords.filter(o=>o.status==='paid'&&o.payMethod==='cash'&&new Date(o.date)>=obDate&&new Date(o.date)<=dcbDate).reduce((s,o)=>s+o.total,0);
+  const cashIn  = ords.filter(o=>(o.status==='paid'||o.status==='partial')&&o.payMethod==='cash'&&new Date(o.date)>=obDate&&new Date(o.date)<=dcbDate).reduce((s,o)=>s+(o.amtPaid||o.total),0);
   const cashOut = exps.filter(e=>e.mode==='cash'&&new Date(e.date)>=obDate&&new Date(e.date)<=dcbDate).reduce((s,e)=>s+e.amt,0);
   const expected = ob.amt + cashIn - cashOut;
   const actual   = parseFloat(dcbForm.amt);
@@ -637,7 +638,7 @@ function saveBankDcb(){
   const ob = openBals.bank;
   const obDate = new Date(ob.date); obDate.setHours(0,0,0,0);
   const dcbDate = new Date(bankDcbForm.date); dcbDate.setHours(23,59,59,999);
-  const bankIn  = ords.filter(o=>o.status==='paid'&&o.payMethod==='gpay'&&new Date(o.date)>=obDate&&new Date(o.date)<=dcbDate).reduce((s,o)=>s+o.total,0);
+  const bankIn  = ords.filter(o=>(o.status==='paid'||o.status==='partial')&&o.payMethod==='gpay'&&new Date(o.date)>=obDate&&new Date(o.date)<=dcbDate).reduce((s,o)=>s+(o.amtPaid||o.total),0);
   const miscIn  = miscBankIncomes.filter(m=>new Date(m.date)>=obDate&&new Date(m.date)<=dcbDate).reduce((s,m)=>s+m.amt,0);
   const bankOut = exps.filter(e=>e.mode==='gpay'&&new Date(e.date)>=obDate&&new Date(e.date)<=dcbDate).reduce((s,e)=>s+e.amt,0);
   const expected = ob.amt + bankIn + miscIn - bankOut;
@@ -1437,7 +1438,7 @@ function rc(){
         <div class="stat-lbl">Total Order Value (period)</div>
         <div class="stat-val" style="color:var(--pink);">₹${Math.round(runTotal)}</div>
       </div>
-      <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;padding-bottom:2px;">
+      <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;" class="filter-scroll">
         ${filterTabs.map(f=>`<button onclick="ordStatusFilter='${f}';rc();" style="flex-shrink:0;padding:7px 12px;border-radius:20px;border:1.5px solid ${ordStatusFilter===f?'var(--pink)':'var(--border)'};background:${ordStatusFilter===f?'var(--pink-pale)':'var(--white)'};color:${ordStatusFilter===f?'var(--pink)':'var(--text-muted)'};font-size:11px;font-weight:800;font-family:inherit;cursor:pointer;">${filterLabels[f]}</button>`).join("")}
       </div>
       ${filteredByStatus.length===0
@@ -1471,11 +1472,11 @@ function rc(){
         };
 
         ords.forEach(o => {
-            if(o.status === 'paid') {
+            if(o.status === 'paid' || o.status === 'partial') {
                 const k = getMonthKey(o.date);
                 if(!k) return;
                 if(!mStats[k]) mStats[k] = {in:0, out:0};
-                mStats[k].in += o.total;
+                mStats[k].in += (o.amtPaid || o.total);
             }
         });
         miscBankIncomes.forEach(m => {
@@ -1523,7 +1524,7 @@ function rc(){
         let e = new Date(cfEnd); e.setHours(23,59,59,999);
         const cfOrds = ords.filter(o => {
           let d = new Date(o.date);
-          return o.status === 'paid' && d >= s && d <= e;
+          return (o.status === 'paid' || o.status === 'partial') && d >= s && d <= e;
         });
         const cfMisc = miscBankIncomes.filter(m => {
           let d = new Date(m.date);
@@ -1534,9 +1535,9 @@ function rc(){
           return d >= s && d <= e;
         });
         const miscInflow = cfMisc.reduce((sum, m) => sum + m.amt, 0);
-        const gpayInflow = cfOrds.filter(o=>o.payMethod==='gpay').reduce((sum,o)=>sum+o.total,0);
-        const cashInflow = cfOrds.filter(o=>o.payMethod==='cash').reduce((sum,o)=>sum+o.total,0);
-        const inflow = cfOrds.reduce((sum, o) => sum + o.total, 0) + miscInflow;
+        const gpayInflow = cfOrds.filter(o=>o.payMethod==='gpay').reduce((sum,o)=>sum+(o.amtPaid||o.total),0);
+        const cashInflow = cfOrds.filter(o=>o.payMethod==='cash').reduce((sum,o)=>sum+(o.amtPaid||o.total),0);
+        const inflow = cfOrds.reduce((sum, o) => sum + (o.amtPaid||o.total), 0) + miscInflow;
         const outflow = cfExps.reduce((sum, x) => sum + x.amt, 0);
 
         // Donut chart maths
