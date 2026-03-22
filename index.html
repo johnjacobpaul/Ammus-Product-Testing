@@ -288,7 +288,7 @@ body { background: #e0d5e9; overflow: hidden; }
       <button class="menu-item" onclick="spMenu('Rate Adjustment Logs')">Rate Adjustment Logs</button>
       <button class="menu-item" onclick="spMenu('Export / Import Data')">Export / Import Data</button>
       <button class="menu-item" onclick="spMenu('Reset App')">Reset App</button>
-      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3.7 | 22.03.2026</div>
+      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3.8 | 22.03.2026</div>
     </div>
 
     <div class="hdr">
@@ -548,6 +548,7 @@ let pg="Home",vw="home",custs=[],ords=[],ps="",exps=[],dcbList=[],bankDcbList=[]
 let cfStart = getStartOfMonth(), cfEnd = fmtDateLocal(new Date());
 let ordStart = getStartOfMonth(), ordEnd = fmtDateLocal(new Date());
 let ordStatusFilter = "all";
+let ordSearch = "";
 let expFilterStart = getStartOfMonth(), expFilterEnd = fmtDateLocal(new Date());
 
 let expCats=["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount","Missing Payments"];
@@ -581,8 +582,8 @@ function toggleMenu(){
     rn();
   }
 }
-function spMenu(page){pg=page;menuOpen=false;vw="home";ps="";tempBankBal="";bankVarCalculated=false;miscIncomeInline={show:false,date:"",amt:""};editingOrder=null;render();}
-function sp(p){pg=p;vw="home";ps="";tempBankBal="";bankVarCalculated=false;miscIncomeInline={show:false,date:"",amt:""};invoiceOrderId=null;editingOrder=null;payModal={open:false,orderId:"",selected:"",payDate:"",payAmt:""};render();}
+function spMenu(page){pg=page;menuOpen=false;vw="home";ps="";tempBankBal="";bankVarCalculated=false;miscIncomeInline={show:false,date:"",amt:""};editingOrder=null;ordSearch="";render();}
+function sp(p){pg=p;vw="home";ps="";tempBankBal="";bankVarCalculated=false;miscIncomeInline={show:false,date:"",amt:""};invoiceOrderId=null;editingOrder=null;ordSearch="";payModal={open:false,orderId:"",selected:"",payDate:"",payAmt:""};render();}
 function so(){editingOrder=null;os={id:"ORD-"+gid().replace("ID-",""),date:tds(),name:"",mob:"",dd:"",items:[{pid:"",qty:""}]};vw="order";render();}
 
 function setThisMonth(type) {
@@ -1400,7 +1401,13 @@ function rc(){
   } else if(pg==="Orders"){
     let s = new Date(ordStart); s.setHours(0,0,0,0);
     let e = new Date(ordEnd); e.setHours(23,59,59,999);
-    const visibleOrds = ords.filter(o => { let d=new Date(o.date); return d>=s&&d<=e; });
+    const searchTerm = ordSearch.toLowerCase().trim();
+    const visibleOrds = ords.filter(o => {
+      let d=new Date(o.date);
+      if(!(d>=s&&d<=e)) return false;
+      if(searchTerm && !o.name.toLowerCase().includes(searchTerm) && !o.mob.includes(searchTerm)) return false;
+      return true;
+    });
     const runTotal = visibleOrds.reduce((sum,o)=>sum+o.total,0);
     const cntOutstanding = ords.filter(o=>o.status==="outstanding").length;
     const cntPending     = ords.filter(o=>o.status==="completed").length;
@@ -1434,8 +1441,13 @@ function rc(){
         <span style="font-size:12px;color:var(--text-muted);font-weight:700;">to</span>
         <input type="date" class="dr-inp" value="${ordEnd}" onchange="ordEnd=this.value; rc()" />
       </div>
+      <div style="position:relative;margin-bottom:12px;">
+        <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input class="fi" style="padding-left:34px;" placeholder="Search by name or mobile..." value="${ordSearch}" oninput="ordSearch=this.value;rc()"/>
+        ${ordSearch?`<div onclick="ordSearch='';rc();" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;color:var(--text-muted);line-height:1;">✕</div>`:''}
+      </div>
       <div class="stat-card" style="margin-bottom:14px;">
-        <div class="stat-lbl">Total Order Value (period)</div>
+        <div class="stat-lbl">Total Order Value (period${searchTerm?' · filtered':''})</div>
         <div class="stat-val" style="color:var(--pink);">₹${Math.round(runTotal)}</div>
       </div>
       <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;" class="filter-scroll">
