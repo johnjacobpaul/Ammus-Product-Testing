@@ -359,7 +359,7 @@ async function loadData(){
     if(d.dcbList) dcbList = d.dcbList;
     if(d.bankDcbList) bankDcbList = d.bankDcbList;
     if(d.miscBankIncomes) miscBankIncomes = d.miscBankIncomes;
-    if(d.expCats) expCats = d.expCats;
+    if(d.expCats){ expCats = d.expCats; ["Variance Reconciliation","Discount","Missing Payments","Grocery & Household"].forEach(c=>{ if(!expCats.includes(c)) expCats.push(c); }); }
     if(d.openBals) openBals = d.openBals;
     if(d.rateAdjLogs) rateAdjLogs = d.rateAdjLogs;
     if(d.PR && d.PR.length) d.PR.forEach(p=>{ const ex=PR.find(x=>x.id===p.id); if(ex){ if(p.userModified) ex.p=p.p; ex.userModified=p.userModified; } else PR.push(p); });
@@ -408,7 +408,7 @@ function importData(){
       if(d.dcbList) dcbList = d.dcbList;
       if(d.bankDcbList) bankDcbList = d.bankDcbList;
       if(d.miscBankIncomes) miscBankIncomes = d.miscBankIncomes;
-      if(d.expCats) expCats = d.expCats;
+      if(d.expCats){ expCats = d.expCats; ["Variance Reconciliation","Discount","Missing Payments","Grocery & Household"].forEach(c=>{ if(!expCats.includes(c)) expCats.push(c); }); }
       if(d.openBals) openBals = d.openBals;
       if(d.rateAdjLogs) rateAdjLogs = d.rateAdjLogs;
       if(d.PR && d.PR.length) d.PR.forEach(p=>{ const ex=PR.find(x=>x.id===p.id); if(ex){ if(p.userModified) ex.p=p.p; ex.userModified=p.userModified; } else PR.push(p); });
@@ -628,7 +628,7 @@ function saveDcb(){
   const ob = openBals.cash;
   const obDate = new Date(ob.date); obDate.setHours(0,0,0,0);
   const dcbDate = new Date(dcbForm.date); dcbDate.setHours(23,59,59,999);
-  const cashIn  = ords.filter(o=>(o.status==='paid'||o.status==='partial')&&new Date(o.date)>=obDate&&new Date(o.date)<=dcbDate).reduce((s,o)=>s+(o.cashPaid||0),0);
+  const cashIn  = ords.filter(o=>(o.status==='paid'||o.status==='partial')&&new Date(o.date)>=obDate&&new Date(o.date)<=dcbDate).reduce((s,o)=>s+(o.cashPaid!==undefined?o.cashPaid:(o.payMethod==='cash'?(o.amtPaid||o.total):0)),0);
   const cashOut = exps.filter(e=>e.mode==='cash'&&new Date(e.date)>=obDate&&new Date(e.date)<=dcbDate).reduce((s,e)=>s+e.amt,0);
   const expected = ob.amt + cashIn - cashOut;
   const actual   = parseFloat(dcbForm.amt);
@@ -646,7 +646,7 @@ function saveBankDcb(){
   const ob = openBals.bank;
   const obDate = new Date(ob.date); obDate.setHours(0,0,0,0);
   const dcbDate = new Date(bankDcbForm.date); dcbDate.setHours(23,59,59,999);
-  const bankIn  = ords.filter(o=>(o.status==='paid'||o.status==='partial')&&new Date(o.date)>=obDate&&new Date(o.date)<=dcbDate).reduce((s,o)=>s+(o.gpayPaid||0),0);
+  const bankIn  = ords.filter(o=>(o.status==='paid'||o.status==='partial')&&new Date(o.date)>=obDate&&new Date(o.date)<=dcbDate).reduce((s,o)=>s+(o.gpayPaid!==undefined?o.gpayPaid:(o.payMethod==='gpay'?(o.amtPaid||o.total):0)),0);
   const miscIn  = miscBankIncomes.filter(m=>new Date(m.date)>=obDate&&new Date(m.date)<=dcbDate).reduce((s,m)=>s+m.amt,0);
   const bankOut = exps.filter(e=>e.mode==='gpay'&&new Date(e.date)>=obDate&&new Date(e.date)<=dcbDate).reduce((s,e)=>s+e.amt,0);
   const expected = ob.amt + bankIn + miscIn - bankOut;
@@ -1564,8 +1564,8 @@ function rc(){
           return d >= s && d <= e;
         });
         const miscInflow = cfMisc.reduce((sum, m) => sum + m.amt, 0);
-        const gpayInflow = cfOrds.reduce((sum,o)=>sum+(o.gpayPaid||0),0);
-        const cashInflow = cfOrds.reduce((sum,o)=>sum+(o.cashPaid||0),0);
+        const gpayInflow = cfOrds.reduce((sum,o)=>sum+(o.gpayPaid!==undefined?o.gpayPaid:(o.payMethod==='gpay'?(o.amtPaid||o.total):0)),0);
+        const cashInflow = cfOrds.reduce((sum,o)=>sum+(o.cashPaid!==undefined?o.cashPaid:(o.payMethod==='cash'?(o.amtPaid||o.total):0)),0);
         const inflow = cfOrds.reduce((sum, o) => sum + (o.amtPaid||o.total), 0) + miscInflow;
         const outflow = cfExps.reduce((sum, x) => sum + x.amt, 0);
 
