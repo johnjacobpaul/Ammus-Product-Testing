@@ -288,7 +288,7 @@ body { background: #e0d5e9; overflow: hidden; }
       <button class="menu-item" onclick="spMenu('Rate Adjustment Logs')">Rate Adjustment Logs</button>
       <button class="menu-item" onclick="spMenu('Export / Import Data')">Export / Import Data</button>
       <button class="menu-item" onclick="spMenu('Reset App')">Reset App</button>
-      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3.8 | 22.03.2026</div>
+      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3.9 | 24.03.2026</div>
     </div>
 
     <div class="hdr">
@@ -551,7 +551,7 @@ let ordStatusFilter = "all";
 let ordSearch = "";
 let expFilterStart = getStartOfMonth(), expFilterEnd = fmtDateLocal(new Date());
 
-let expCats=["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount","Missing Payments"];
+let expCats=["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount","Missing Payments","Grocery & Household"];
 let os={id:"",date:"",name:"",mob:"",dd:"",items:[]};
 let editingOrder=null;
 let exForm={id:"",date:"",cat:"Labour - Annamma",mode:"cash",amt:""};
@@ -628,7 +628,7 @@ function saveDcb(){
   const ob = openBals.cash;
   const obDate = new Date(ob.date); obDate.setHours(0,0,0,0);
   const dcbDate = new Date(dcbForm.date); dcbDate.setHours(23,59,59,999);
-  const cashIn  = ords.filter(o=>(o.status==='paid'||o.status==='partial')&&o.payMethod==='cash'&&new Date(o.date)>=obDate&&new Date(o.date)<=dcbDate).reduce((s,o)=>s+(o.amtPaid||o.total),0);
+  const cashIn  = ords.filter(o=>(o.status==='paid'||o.status==='partial')&&new Date(o.date)>=obDate&&new Date(o.date)<=dcbDate).reduce((s,o)=>s+(o.cashPaid||0),0);
   const cashOut = exps.filter(e=>e.mode==='cash'&&new Date(e.date)>=obDate&&new Date(e.date)<=dcbDate).reduce((s,e)=>s+e.amt,0);
   const expected = ob.amt + cashIn - cashOut;
   const actual   = parseFloat(dcbForm.amt);
@@ -646,7 +646,7 @@ function saveBankDcb(){
   const ob = openBals.bank;
   const obDate = new Date(ob.date); obDate.setHours(0,0,0,0);
   const dcbDate = new Date(bankDcbForm.date); dcbDate.setHours(23,59,59,999);
-  const bankIn  = ords.filter(o=>(o.status==='paid'||o.status==='partial')&&o.payMethod==='gpay'&&new Date(o.date)>=obDate&&new Date(o.date)<=dcbDate).reduce((s,o)=>s+(o.amtPaid||o.total),0);
+  const bankIn  = ords.filter(o=>(o.status==='paid'||o.status==='partial')&&new Date(o.date)>=obDate&&new Date(o.date)<=dcbDate).reduce((s,o)=>s+(o.gpayPaid||0),0);
   const miscIn  = miscBankIncomes.filter(m=>new Date(m.date)>=obDate&&new Date(m.date)<=dcbDate).reduce((s,m)=>s+m.amt,0);
   const bankOut = exps.filter(e=>e.mode==='gpay'&&new Date(e.date)>=obDate&&new Date(e.date)<=dcbDate).reduce((s,e)=>s+e.amt,0);
   const expected = ob.amt + bankIn + miscIn - bankOut;
@@ -794,11 +794,15 @@ function confirmPayment(){
   if(isNaN(entered)||entered<=0){stk("Enter a valid amount","err");return;}
   if(entered>remaining+0.01){stk("Amount cannot exceed remaining balance ₹"+Math.round(remaining),"err");return;}
   const newAmtPaid = (o.amtPaid||0) + entered;
+  // Track per-method amounts
+  if(method==='cash') o.cashPaid = (o.cashPaid||0) + entered;
+  else                o.gpayPaid = (o.gpayPaid||0) + entered;
+  o.payMethod = method; // last method used (for badge display fallback)
   if(Math.abs(newAmtPaid - o.total) < 0.01){
-    o.status="paid"; o.payMethod=method; o.payDate=payModal.payDate||tdi(); o.amtPaid=o.total;
+    o.status="paid"; o.payDate=payModal.payDate||tdi(); o.amtPaid=o.total;
     stk("Payment recorded — order fully paid!","ok");
   } else {
-    o.status="partial"; o.payMethod=method; o.lastPayDate=payModal.payDate||tdi(); o.amtPaid=newAmtPaid;
+    o.status="partial"; o.lastPayDate=payModal.payDate||tdi(); o.amtPaid=newAmtPaid;
     stk("Partial payment of ₹"+Math.round(entered)+" recorded","ok");
   }
   scheduleSave();
@@ -1233,7 +1237,13 @@ function orderSection(title,dotColor,badgeBg,badgeColor,statusKey,totalColor,lis
           ${statusKey==="outstanding"?`<button class="oact oact-complete" onclick="markComplete('${o.id}')">✓ Complete</button>`:""}
           ${statusKey==="outstanding"||statusKey==="completed"||statusKey==="partial"?`<button class="oact" style="background:#e0f2fe;color:#0369a1;" onclick="editOrder('${o.id}')">✏️ Edit</button>`:""}
           ${statusKey==="completed"||statusKey==="partial"?`<button class="oact oact-pay" onclick="openPayModal('${o.id}')">💳 Pay</button>`:""}
-          ${statusKey==="paid"?`<span class="oact-paid-badge">✓ ${o.payMethod==="gpay"?"GPay":"Cash"}${o.payDate?' · '+fdate(o.payDate):''}</span>`:""}
+          ${statusKey==="paid"||statusKey==="partial"?`<span class="oact-paid-badge">${(()=>{
+            const parts=[];
+            if(o.cashPaid>0) parts.push('Cash ₹'+Math.round(o.cashPaid));
+            if(o.gpayPaid>0) parts.push('GPay ₹'+Math.round(o.gpayPaid));
+            if(!parts.length) parts.push(o.payMethod==='gpay'?'GPay':'Cash');
+            return '✓ '+parts.join(' + ');
+          })()}${o.payDate?' · '+fdate(o.payDate):''}</span>`:""}
           <button class="oact oact-invoice" onclick="openInvoice('${o.id}')">🧾 Invoice</button>
           <button class="oact oact-del" onclick="deleteOrder('${o.id}')">🗑️ Delete</button>
         </div>
@@ -1495,7 +1505,7 @@ function rc(){
                 const k = getMonthKey(o.date);
                 if(!k) return;
                 if(!mStats[k]) mStats[k] = {in:0, out:0};
-                mStats[k].in += (o.amtPaid || o.total);
+                mStats[k].in += (o.cashPaid||0) + (o.gpayPaid||0) || (o.amtPaid||o.total);
             }
         });
         miscBankIncomes.forEach(m => {
@@ -1554,8 +1564,8 @@ function rc(){
           return d >= s && d <= e;
         });
         const miscInflow = cfMisc.reduce((sum, m) => sum + m.amt, 0);
-        const gpayInflow = cfOrds.filter(o=>o.payMethod==='gpay').reduce((sum,o)=>sum+(o.amtPaid||o.total),0);
-        const cashInflow = cfOrds.filter(o=>o.payMethod==='cash').reduce((sum,o)=>sum+(o.amtPaid||o.total),0);
+        const gpayInflow = cfOrds.reduce((sum,o)=>sum+(o.gpayPaid||0),0);
+        const cashInflow = cfOrds.reduce((sum,o)=>sum+(o.cashPaid||0),0);
         const inflow = cfOrds.reduce((sum, o) => sum + (o.amtPaid||o.total), 0) + miscInflow;
         const outflow = cfExps.reduce((sum, x) => sum + x.amt, 0);
 
@@ -2214,7 +2224,7 @@ function render(){
 async function confirmReset(){
   if(!confirm('Are you absolutely sure? ALL orders, expenses, customers and balances will be permanently deleted.')) return;
   custs=[]; ords=[]; exps=[]; dcbList=[]; bankDcbList=[]; miscBankIncomes=[];
-  expCats=["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount","Missing Payments"];
+  expCats=["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount","Missing Payments","Grocery & Household"];
   openBals={cash:{date:tdi(),amt:0},bank:{date:tdi(),amt:0}};
   expFilterStart=getStartOfMonth(); expFilterEnd=tdi();
   await persistData();
