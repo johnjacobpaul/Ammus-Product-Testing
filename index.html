@@ -288,7 +288,7 @@ body { background: #e0d5e9; overflow: hidden; }
       <button class="menu-item" onclick="spMenu('Rate Adjustment Logs')">Rate Adjustment Logs</button>
       <button class="menu-item" onclick="spMenu('Export / Import Data')">Export / Import Data</button>
       <button class="menu-item" onclick="spMenu('Reset App')">Reset App</button>
-      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V3.9 | 24.03.2026</div>
+      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V4.0| 01.04.2026</div>
     </div>
 
     <div class="hdr">
@@ -530,7 +530,8 @@ const PR=[
   {id:45,n:"Mushroom Fry",p:2000,u:"kg",c:"special"},
   {id:46,n:"Prawns Fry",p:1500,u:"kg",c:"special"},
   {id:47,n:"Thenga Varuthathu",p:600,u:"kg",c:"special"},
-  {id:48,n:"Chethu Manga Achar",p:360,u:"kg",c:"pickle"}
+  {id:48,n:"Chethu Manga Achar",p:360,u:"kg",c:"pickle"},
+  {id:49,n:"Pidi (400g per person)",p:125,u:"pp",c:"special"}
 ];
 const BT=[
   {l:"Enter an Order",d:"Create a new customer order",bg:"#f9e6f1",ic:"#b81273",bc:"#f1bddd"},
@@ -1419,20 +1420,43 @@ function rc(){
     let s = new Date(ordStart); s.setHours(0,0,0,0);
     let e = new Date(ordEnd); e.setHours(23,59,59,999);
     const searchTerm = ordSearch.toLowerCase().trim();
+
+    // Helper to get delivery date as Date object
+    function getDeliveryDate(o){
+      if(o.ddRaw) return new Date(o.ddRaw);
+      if(o.dd){
+        const months={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+        const parts=o.dd.split(' ');
+        if(parts.length===3) return new Date(parseInt(parts[2]),months[parts[1]],parseInt(parts[0]));
+      }
+      return new Date(o.date);
+    }
+
+    // All orders matching search (no date filter) — for Outstanding/Pending/Partial
+    const allSearchOrds = ords.filter(o =>
+      !searchTerm || o.name.toLowerCase().includes(searchTerm) || o.mob.includes(searchTerm)
+    );
+
+    // Date-filtered orders by delivery date — for Paid section and Total Value
     const visibleOrds = ords.filter(o => {
-      let d=new Date(o.date);
-      if(!(d>=s&&d<=e)) return false;
+      const dd = getDeliveryDate(o);
+      if(!(dd>=s && dd<=e)) return false;
       if(searchTerm && !o.name.toLowerCase().includes(searchTerm) && !o.mob.includes(searchTerm)) return false;
       return true;
     });
-    const runTotal = visibleOrds.reduce((sum,o)=>sum+o.total,0);
+
+    const runTotal = visibleOrds.filter(o=>o.status==='paid').reduce((sum,o)=>sum+(o.amtPaid||o.total),0);
     const cntOutstanding = ords.filter(o=>o.status==="outstanding").length;
     const cntPending     = ords.filter(o=>o.status==="completed").length;
     const cntPartial     = ords.filter(o=>o.status==="partial").length;
 
     const filterTabs = ["all","outstanding","completed","partial","paid"];
     const filterLabels = {all:"All",outstanding:"Outstanding",completed:"Pending Pay",partial:"Partially Paid",paid:"Paid"};
-    const filteredByStatus = ordStatusFilter==="all" ? visibleOrds : visibleOrds.filter(o=>o.status===ordStatusFilter);
+
+    // For paid: use date-filtered list. For all others: use all-time search list
+    const isPaidFilter = ordStatusFilter==="paid";
+    const sourceOrds = isPaidFilter ? visibleOrds : allSearchOrds;
+    const filteredByStatus = ordStatusFilter==="all" ? sourceOrds : sourceOrds.filter(o=>o.status===ordStatusFilter);
 
     el.innerHTML=`<div class="main">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
@@ -1458,13 +1482,14 @@ function rc(){
         <span style="font-size:12px;color:var(--text-muted);font-weight:700;">to</span>
         <input type="date" class="dr-inp" value="${ordEnd}" onchange="ordEnd=this.value; rc()" />
       </div>
+      <div style="font-size:10px;color:var(--text-muted);font-weight:600;margin:-8px 0 12px;letter-spacing:.04em;">↑ Date range applies to Paid orders by delivery date</div>
       <div style="position:relative;margin-bottom:12px;">
         <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
         <input id="ord-search-inp" class="fi" style="padding-left:34px;" placeholder="Search by name or mobile..." value="${ordSearch}" oninput="updateOrdSearch(this.value)"/>
         ${ordSearch?`<div onclick="ordSearch='';rc();" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;color:var(--text-muted);line-height:1;">✕</div>`:''}
       </div>
       <div class="stat-card" style="margin-bottom:14px;">
-        <div class="stat-lbl">Total Order Value (period${searchTerm?' · filtered':''})</div>
+        <div class="stat-lbl">Paid Order Value (by delivery date${searchTerm?' · filtered':''})</div>
         <div class="stat-val" style="color:var(--pink);">₹${Math.round(runTotal)}</div>
       </div>
       <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;" class="filter-scroll">
@@ -1479,9 +1504,9 @@ function rc(){
               ordStatusFilter==="outstanding"?"#991b1b":ordStatusFilter==="completed"?"#c2410c":ordStatusFilter==="partial"?"#92400e":"#166534",
               ordStatusFilter, ordStatusFilter==="outstanding"?"#dc2626":ordStatusFilter==="completed"?"#f97316":ordStatusFilter==="partial"?"#d97706":"#16a34a",
               filteredByStatus)
-          : orderSection("Outstanding","#dc2626","#fee2e2","#991b1b","outstanding","#dc2626",visibleOrds)
-            +orderSection("Completed — Pending Payment","#f97316","#ffedd5","#c2410c","completed","#f97316",visibleOrds)
-            +orderSection("Partially Paid","#d97706","#fef3c7","#92400e","partial","#d97706",visibleOrds)
+          : orderSection("Outstanding","#dc2626","#fee2e2","#991b1b","outstanding","#dc2626",allSearchOrds)
+            +orderSection("Completed — Pending Payment","#f97316","#ffedd5","#c2410c","completed","#f97316",allSearchOrds)
+            +orderSection("Partially Paid","#d97706","#fef3c7","#92400e","partial","#d97706",allSearchOrds)
             +orderSection("Paid","#16a34a","#dcfce7","#166534","paid","#16a34a",visibleOrds)
         )}</div>`;
   } else if(pg==="Cashflow"){
@@ -1715,10 +1740,7 @@ function rc(){
           <div><label class="fl">Unit</label>
             <select id="new-prod-unit" class="fi">
               <option value="kg">kg</option>
-              <option value="1">piece</option>
-              <option value="g">g</option>
-              <option value="L">L</option>
-              <option value="pkt">pkt</option>
+              <option value="pp">pp</option>
             </select>
           </div>
         </div>
