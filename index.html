@@ -288,7 +288,7 @@ body { background: #e0d5e9; overflow: hidden; }
       <button class="menu-item" onclick="spMenu('Rate Adjustment Logs')">Rate Adjustment Logs</button>
       <button class="menu-item" onclick="spMenu('Export / Import Data')">Export / Import Data</button>
       <button class="menu-item" onclick="spMenu('Reset App')">Reset App</button>
-      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V4.1 | 01.04.2026</div>
+      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V4.2 | 02.04.2026</div>
     </div>
 
     <div class="hdr">
@@ -495,8 +495,8 @@ const PR=[
   {id:10,n:"Aval Vilayichathu",p:600,u:"kg",c:"snack"},
   {id:11,n:"Vattayappam",p:80,u:"serve",c:"snack"},
   {id:12,n:"Kinnathappam",p:90,u:"serve",c:"snack"},
-  {id:13,n:"Appam Podi",p:110,u:"kg",c:"powder"},
-  {id:14,n:"Puttu Podi",p:100,u:"kg",c:"powder"},
+  {id:13,n:"Appam Podi",p:120,u:"kg",c:"powder"},
+  {id:14,n:"Puttu Podi",p:120,u:"kg",c:"powder"},
   {id:15,n:"Chemba Puttu Podi",p:120,u:"kg",c:"powder"},
   {id:16,n:"Chammandi Podi",p:900,u:"kg",c:"powder"},
   {id:17,n:"Avalose Podi",p:600,u:"kg",c:"powder"},
@@ -1447,9 +1447,9 @@ function rc(){
 
     const runTotal = visibleOrds.filter(o=>o.status==='paid').reduce((sum,o)=>sum+(o.amtPaid||o.total),0);
     // Current month total order value — all orders with delivery date in current month
-    const now = new Date();
-    const cmStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const cmEnd   = new Date(now.getFullYear(), now.getMonth()+1, 0, 23, 59, 59);
+    const rangeEnd = new Date(ordEnd); 
+    const cmStart = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1);
+    const cmEnd   = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth()+1, 0, 23, 59, 59);
     const cmTotal = ords.reduce((sum,o)=>{ const dd=getDeliveryDate(o); return(dd>=cmStart&&dd<=cmEnd)?sum+o.total:sum; }, 0);
     const cntOutstanding = ords.filter(o=>o.status==="outstanding").length;
     const cntPending     = ords.filter(o=>o.status==="completed").length;
@@ -1494,7 +1494,7 @@ function rc(){
         ${ordSearch?`<div onclick="ordSearch='';rc();" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;color:var(--text-muted);line-height:1;">✕</div>`:''}
       </div>
       <div class="stat-card" style="margin-bottom:14px;">
-        <div class="stat-lbl">Order Value — ${now.toLocaleDateString('en-IN',{month:'long',year:'numeric'})}</div>
+        <div class="stat-lbl">Order Value — ${rangeEnd.toLocaleDateString('en-IN',{month:'long',year:'numeric'})}</div>
         <div class="stat-val" style="color:var(--pink);">₹${Math.round(cmTotal)}</div>
         <div class="stat-row" style="margin-top:10px;padding-top:10px;">
           <div class="stat-col"><div class="stat-lbl">Paid (date range)</div><div style="font-size:16px;font-weight:800;color:#16a34a;">₹${Math.round(runTotal)}</div></div>
