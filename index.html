@@ -288,7 +288,7 @@ body { background: #e0d5e9; overflow: hidden; }
       <button class="menu-item" onclick="spMenu('Rate Adjustment Logs')">Rate Adjustment Logs</button>
       <button class="menu-item" onclick="spMenu('Export / Import Data')">Export / Import Data</button>
       <button class="menu-item" onclick="spMenu('Reset App')">Reset App</button>
-      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V4.4 | 03.04.2026</div>
+      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V5.0 | 03.04.2026</div>
     </div>
 
     <div class="hdr">
@@ -321,6 +321,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 const _PIN = '05049596';
+const _PIN_KEY = 'ammys_pin_ok'; // localStorage key for device PIN memory
 let isLoggedIn = false;
 let currentUserId = null;
 let pinBuffer = '';
@@ -457,6 +458,7 @@ function pinKey(k){
   renderPinDots();
   if(pinBuffer.length === _PIN.length){
     if(pinBuffer === _PIN){
+      localStorage.setItem(_PIN_KEY,'1'); // Remember this device has verified the PIN
       closePinModal();
       menuOpen = true;
       rn();
@@ -570,14 +572,19 @@ function gid(){const n=new Date();return"ID-"+String(n.getFullYear()).slice(2)+S
 function tds(){return new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});}
 function tdi(){return fmtDateLocal(new Date());}
 function fdate(ds){if(!ds)return"";const p=ds.split("-");if(p.length!==3)return ds;const dt=new Date(p[0],parseInt(p[1])-1,p[2]);return dt.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});}
+// Parses order creation date stored as display string "18 Mar 2026"
+function parseDisplayDate(ds){if(!ds)return new Date('invalid');const months={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};const parts=ds.trim().split(' ');if(parts.length===3&&months[parts[1]]!==undefined){return new Date(parseInt(parts[2]),months[parts[1]],parseInt(parts[0]));}return new Date(ds);}
+// Returns the effective payment date for a paid/partial order, falling back to order creation date
+function getPaymentDate(o){if(o.payDate){const d=new Date(o.payDate);if(!isNaN(d))return d;}if(o.lastPayDate){const d=new Date(o.lastPayDate);if(!isNaN(d))return d;}return parseDisplayDate(o.date);}
 function lt(it){const p=PR.find(x=>x.id===parseInt(it.pid));if(!p)return 0;const rate=it.adjRate!==undefined?it.adjRate:p.p;return rate*(parseFloat(it.qty)||0);}
 function ot(){return os.items.reduce((s,i)=>s+lt(i),0);}
 function stk(m,type){const t=document.getElementById("tk");t.textContent=m;t.className="tk on "+(type==="err"?"er":"ok");setTimeout(()=>t.className="tk",2500);}
 
 function toggleMenu(){
   if(!menuOpen){
-    // Require PIN before opening
-    openPinModal();
+    // If this device has already verified the PIN before, open directly
+    if(localStorage.getItem(_PIN_KEY)==='1'){menuOpen=true;rn();}
+    else{openPinModal();}
   } else {
     menuOpen = false;
     rn();
@@ -1535,7 +1542,8 @@ function rc(){
 
         ords.forEach(o => {
             if(o.status === 'paid' || o.status === 'partial') {
-                const k = getMonthKey(o.payDate || o.lastPayDate || o.date);
+                const pd = getPaymentDate(o); if(isNaN(pd)) return;
+                const k = getMonthKey(pd.toISOString().slice(0,10));
                 if(!k) return;
                 if(!mStats[k]) mStats[k] = {in:0, out:0};
                 mStats[k].in += (o.amtPaid||o.total);
@@ -1585,8 +1593,9 @@ function rc(){
         let s = new Date(cfStart); s.setHours(0,0,0,0);
         let e = new Date(cfEnd); e.setHours(23,59,59,999);
         const cfOrds = ords.filter(o => {
-          const payDt = new Date(o.payDate || o.lastPayDate || o.date);
-          return (o.status === 'paid' || o.status === 'partial') && payDt >= s && payDt <= e;
+          if(o.status !== 'paid' && o.status !== 'partial') return false;
+          const payDt = getPaymentDate(o);
+          return !isNaN(payDt) && payDt >= s && payDt <= e;
         });
         const cfMisc = miscBankIncomes.filter(m => {
           let d = new Date(m.date);
