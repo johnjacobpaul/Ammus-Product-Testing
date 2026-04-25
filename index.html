@@ -288,7 +288,7 @@ body { background: #e0d5e9; overflow: hidden; }
       <button class="menu-item" onclick="spMenu('Rate Adjustment Logs')">Rate Adjustment Logs</button>
       <button class="menu-item" onclick="spMenu('Export / Import Data')">Export / Import Data</button>
       <button class="menu-item" onclick="spMenu('Reset App')">Reset App</button>
-      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V5.0 | 04.04.2026</div>
+      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V4.4 | 03.04.2026</div>
     </div>
 
     <div class="hdr">
@@ -556,6 +556,7 @@ let expFilterStart = getStartOfMonth(), expFilterEnd = fmtDateLocal(new Date());
 
 let expCats=["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount","Missing Payments","Grocery & Household"];
 let os={id:"",date:"",name:"",mob:"",dd:"",items:[]};
+let waModal={open:false,text:''};
 let editingOrder=null;
 let exForm={id:"",date:"",cat:"Labour - Annamma",mode:"cash",amt:""};
 let dcbForm={id:"",date:"",amt:""};
@@ -572,10 +573,77 @@ function gid(){const n=new Date();return"ID-"+String(n.getFullYear()).slice(2)+S
 function tds(){return new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});}
 function tdi(){return fmtDateLocal(new Date());}
 function fdate(ds){if(!ds)return"";const p=ds.split("-");if(p.length!==3)return ds;const dt=new Date(p[0],parseInt(p[1])-1,p[2]);return dt.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});}
-// Parses order creation date stored as display string e.g. "18 Mar 2026"
 function parseDisplayDate(ds){if(!ds)return new Date('invalid');const months={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};const parts=ds.trim().split(' ');if(parts.length===3&&months[parts[1]]!==undefined){return new Date(parseInt(parts[2]),months[parts[1]],parseInt(parts[0]));}return new Date(ds);}
-// Returns the effective payment date for a paid/partial order, falling back to order creation date
 function getPaymentDate(o){if(o.payDate){const d=new Date(o.payDate);if(!isNaN(d))return d;}if(o.lastPayDate){const d=new Date(o.lastPayDate);if(!isNaN(d))return d;}return parseDisplayDate(o.date);}
+
+function parseWAOrder(){
+  const raw = waModal.text || '';
+  // --- Phone ---
+  const phoneM = raw.match(/\*Phone:\*\s*(\d[\d\s\-]{8,})/i);
+  if(!phoneM){ stk('Could not find phone number in message','err'); return; }
+  const mob = phoneM[1].replace(/\D/g,'').slice(-10);
+  if(mob.length < 10){ stk('Phone number seems invalid','err'); return; }
+
+  // --- Name ---
+  const nameM = raw.match(/\*Name:\*\s*(.+)/i);
+  const parsedName = nameM ? nameM[1].trim() : '';
+
+  // --- Delivery date: "Monday, 27 April 2026" or "27 April 2026" ---
+  const ddM = raw.match(/\*Requested Delivery Date:\*\s*(.+)/i);
+  let ddRaw = '';
+  if(ddM){
+    const fullMonths = {January:1,February:2,March:3,April:4,May:5,June:6,July:7,August:8,September:9,October:10,November:11,December:12};
+    const ddStr = ddM[1].trim().replace(/^[A-Za-z]+,\s*/,''); // strip "Monday, "
+    const parts = ddStr.split(/\s+/);
+    if(parts.length >= 3 && fullMonths[parts[1]]){
+      const day = String(parseInt(parts[0])).padStart(2,'0');
+      const mon = String(fullMonths[parts[1]]).padStart(2,'0');
+      ddRaw = `${parts[2]}-${mon}-${day}`;
+    }
+  }
+
+  // --- Items: "• Sharkara Unda × 3 kg = ₹2,160" ---
+  const itemRegex = /[•·\-]\s*(.+?)\s*[×xX]\s*([\d.]+)\s*(kg|pp|serve|g)?\s*=\s*[₹Rs.]?[\d,]+/g;
+  const parsedItems = [];
+  const unmatched = [];
+  let m;
+  while((m = itemRegex.exec(raw)) !== null){
+    const rawName = m[1].trim();
+    const qty = m[2].trim();
+    // Exact match first, then partial
+    const prod = PR.find(p => p.n.toLowerCase() === rawName.toLowerCase())
+              || PR.find(p => p.n.toLowerCase().includes(rawName.toLowerCase()))
+              || PR.find(p => rawName.toLowerCase().includes(p.n.toLowerCase()));
+    if(prod){ parsedItems.push({pid:String(prod.id), qty}); }
+    else { unmatched.push(rawName); }
+  }
+
+  // --- Customer lookup ---
+  const existingCust = custs.find(c => c.mob === mob);
+  const resolvedName = existingCust ? existingCust.name : parsedName;
+  if(!existingCust && resolvedName && mob.length === 10){
+    custs.push({name: resolvedName, mob, cnt: 0});
+    scheduleSave();
+  }
+
+  // --- Fill order form ---
+  os.name = resolvedName;
+  os.mob  = mob;
+  os.dd   = ddRaw;
+  os.items = parsedItems.length ? parsedItems : [{pid:'',qty:''}];
+
+  waModal = {open:false, text:''};
+  vw = 'order';
+  render();
+
+  if(unmatched.length){
+    setTimeout(()=>stk('⚠️ Unmatched items: '+unmatched.join(', '),'err'), 300);
+  } else if(!existingCust){
+    setTimeout(()=>stk('New customer added: '+resolvedName,'ok'), 300);
+  } else {
+    setTimeout(()=>stk('Matched: '+resolvedName,'ok'), 300);
+  }
+}
 function lt(it){const p=PR.find(x=>x.id===parseInt(it.pid));if(!p)return 0;const rate=it.adjRate!==undefined?it.adjRate:p.p;return rate*(parseFloat(it.qty)||0);}
 function ot(){return os.items.reduce((s,i)=>s+lt(i),0);}
 function stk(m,type){const t=document.getElementById("tk");t.textContent=m;t.className="tk on "+(type==="err"?"er":"ok");setTimeout(()=>t.className="tk",2500);}
@@ -1380,13 +1448,43 @@ function rc(){
     </div>`;return;
   }
 
+  if(waModal.open){
+    el.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:flex-end;">
+      <div style="background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;box-sizing:border-box;max-height:85vh;overflow-y:auto;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+          <div style="width:36px;height:36px;border-radius:50%;background:#25d366;display:flex;align-items:center;justify-content:center;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          </div>
+          <div>
+            <div style="font-size:16px;font-weight:800;color:#111;">WhatsApp Order</div>
+            <div style="font-size:11px;color:#888;font-weight:600;">Paste your order message below</div>
+          </div>
+          <button onclick="waModal.open=false;render();" style="margin-left:auto;background:none;border:none;font-size:22px;color:#888;cursor:pointer;line-height:1;">✕</button>
+        </div>
+        <textarea id="wa-paste-area" placeholder="Paste the WhatsApp order message here…" style="width:100%;box-sizing:border-box;height:220px;border:1.5px solid #e0e0e0;border-radius:14px;padding:12px;font-size:13px;font-family:inherit;font-weight:500;color:#333;resize:none;outline:none;line-height:1.5;" oninput="waModal.text=this.value">${waModal.text}</textarea>
+        <button onclick="parseWAOrder()" style="width:100%;margin-top:12px;padding:14px;background:#25d366;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;letter-spacing:.02em;">Parse & Fill Order</button>
+        <button onclick="waModal.open=false;render();" style="width:100%;margin-top:8px;padding:12px;background:#f5f5f5;color:#666;border:none;border-radius:14px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">Cancel</button>
+      </div>
+    </div>`;return;
+  }
+
   if(pg==="Home"&&vw==="order"){
     el.innerHTML=`<div class="main">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:${editingOrder?'18px':'10px'};">
         <div class="bk" onclick="(function(){const wasEditing=editingOrder;editingOrder=null;sp(wasEditing?'Orders':'Home');})()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#403844" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></div>
         <div><div style="font-size:17px;font-weight:800;color:var(--text-dark);">${editingOrder?'Edit Order':'New Order'}</div><div style="font-size:12px;color:var(--text-muted);font-weight:600;">${editingOrder?'Modify items or details':'Fill in all details below'}</div></div>
         <div class="oid-badge" style="margin-left:auto;">${os.id}</div>
       </div>
+      ${!editingOrder?`<button onclick="waModal.open=true;render();" style="width:100%;margin-bottom:14px;padding:11px 16px;background:#f0fdf4;border:1.5px solid #25d366;border-radius:14px;display:flex;align-items:center;gap:10px;cursor:pointer;font-family:inherit;">
+        <div style="width:28px;height:28px;border-radius:50%;background:#25d366;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        </div>
+        <div style="text-align:left;">
+          <div style="font-size:13px;font-weight:800;color:#16a34a;">WhatsApp Order</div>
+          <div style="font-size:11px;color:#86a88e;font-weight:600;">Paste message to auto-fill order</div>
+        </div>
+        <svg style="margin-left:auto;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#25d366" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+      </button>`:''}
       <div class="card">
         <div class="tc">
           <div><label class="fl">Order Date</label><input class="fi" value="${os.date}" disabled/></div>
