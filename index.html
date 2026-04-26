@@ -288,7 +288,7 @@ body { background: #e0d5e9; overflow: hidden; }
       <button class="menu-item" onclick="spMenu('Rate Adjustment Logs')">Rate Adjustment Logs</button>
       <button class="menu-item" onclick="spMenu('Export / Import Data')">Export / Import Data</button>
       <button class="menu-item" onclick="spMenu('Reset App')">Reset App</button>
-      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">V4.4 | 03.04.2026</div>
+      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">v5.1 [TEST] | 27.04.2026</div>
     </div>
 
     <div class="hdr">
@@ -2311,7 +2311,7 @@ function rc(){
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div>
               <div style="font-size:15px;font-weight:800;color:var(--text-dark);">${e.cat}</div>
-              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;font-weight:600;">${fdate(e.date)} · ${e.mode.toUpperCase()}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;font-weight:600;">${fdate(e.date)} · ${e.mode.toUpperCase()}${e.desc?(' · '+e.desc):''}</div>
             </div>
             <div style="text-align:right;">
               <div style="font-size:16px;font-weight:800;color:var(--pink);">₹${e.amt}</div>
