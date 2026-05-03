@@ -288,7 +288,7 @@ body { background: #e0d5e9; overflow: hidden; }
       <button class="menu-item" onclick="spMenu('Rate Adjustment Logs')">Rate Adjustment Logs</button>
       <button class="menu-item" onclick="spMenu('Export / Import Data')">Export / Import Data</button>
       <button class="menu-item" onclick="spMenu('Reset App')">Reset App</button>
-      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">v5.1 [TEST] | 27.04.2026</div>
+      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">v5.2 | 03.05.2026</div>
     </div>
 
     <div class="hdr">
@@ -557,7 +557,9 @@ let expFilterStart = getStartOfMonth(), expFilterEnd = fmtDateLocal(new Date());
 let expCats=["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount","Missing Payments","Grocery & Household"];
 let os={id:"",date:"",name:"",mob:"",dd:"",items:[]};
 let waModal={open:false,text:''};
-let insightQtr = 'all'; // 'all' | 'Q1' | 'Q2' | 'Q3' | 'Q4'
+let insightQtr = 'all';
+let custSearch = '';
+let custEditModal = {open:false, origMob:'', name:'', mob:''};
 let editingOrder=null;
 let exForm={id:"",date:"",cat:"Labour - Annamma",mode:"cash",amt:"",desc:""};
 let dcbForm={id:"",date:"",amt:""};
@@ -689,6 +691,23 @@ function delCategory(i){
   expCats.splice(i,1);scheduleSave();stk("Category deleted","ok");rc();
 }
 
+function openCustEdit(mob){const c=custs.find(x=>x.mob===mob);if(!c)return;custEditModal={open:true,origMob:mob,name:c.name,mob:c.mob};render();}
+function saveCustEdit(){
+  const name=custEditModal.name.trim();
+  const mob=custEditModal.mob.replace(/\D/g,'').slice(-10);
+  if(!name){stk('Name cannot be empty','err');return;}
+  if(mob.length!==10){stk('Phone must be 10 digits','err');return;}
+  if(mob!==custEditModal.origMob&&custs.find(c=>c.mob===mob)){stk('Phone already exists for another customer','err');return;}
+  const idx=custs.findIndex(c=>c.mob===custEditModal.origMob);
+  if(idx===-1){stk('Customer not found','err');return;}
+  custs[idx]={...custs[idx],name,mob};
+  // Update all orders that reference the old mob
+  ords.forEach(o=>{if(o.mob===custEditModal.origMob){o.mob=mob;o.name=name;}});
+  scheduleSave();
+  custEditModal={open:false,origMob:'',name:'',mob:''};
+  stk('Customer updated','ok');
+  render();
+}
 function openExpenseForm(){exForm={id:"EXP-"+gid().replace("ID-",""),date:tdi(),cat:expCats[0]||"",mode:"cash",amt:"",desc:""};vw="expense";render();}
 function saveExpense(){
   if(!exForm.amt||isNaN(exForm.amt)){stk("Please enter a valid amount","err");return;}
@@ -1717,6 +1736,11 @@ function rc(){
         const cashInflow = cfOrds.reduce((sum,o)=>sum+(o.cashPaid!==undefined?o.cashPaid:(o.payMethod==='cash'?(o.amtPaid||o.total):0)),0);
         const inflow = cfOrds.reduce((sum, o) => sum + (o.amtPaid||o.total), 0) + miscInflow;
         const outflow = cfExps.reduce((sum, x) => sum + x.amt, 0);
+        // Business Profit adds back personal/household costs (not true business expenses)
+        const personalExp = cfExps.filter(e=>e.cat==='Personal').reduce((s,e)=>s+e.amt,0);
+        const groceryExp  = cfExps.filter(e=>e.cat==='Grocery & Household').reduce((s,e)=>s+e.amt,0);
+        const businessProfit = inflow - outflow + personalExp + groceryExp;
+        const profitPct = inflow > 0 ? Math.round(businessProfit / inflow * 100) : 0;
 
         // Donut chart maths
         const donutTotal = gpayInflow + cashInflow + miscInflow;
@@ -1840,6 +1864,16 @@ function rc(){
                 <div class="stat-val" style="color:var(--text-dark);">₹${Math.round(inflow - outflow)}</div>
               </div>
             </div>
+            <div class="stat-row" style="border-top:2px dashed var(--border);margin-top:4px;padding-top:12px;">
+              <div class="stat-col">
+                <div class="stat-lbl">Business Profit</div>
+                <div class="stat-val" style="color:${businessProfit>=0?'#16a34a':'#dc2626'};">₹${Math.round(businessProfit)}</div>
+              </div>
+              <div class="stat-col" style="text-align:right;">
+                <div class="stat-lbl">Profit %</div>
+                <div class="stat-val" style="color:${profitPct>=0?'#16a34a':'#dc2626'};">${profitPct}%</div>
+              </div>
+            </div>
           </div>
           ${donutHTML}
           ${expDonutHTML}
@@ -1946,6 +1980,17 @@ function rc(){
 
     const waCount = filteredOrds.filter(o => o.source === 'whatsapp').length;
 
+    // Revenue per unit = total revenue / total qty sold per product
+    let prodRevPerUnit = {};
+    Object.keys(prodQty).forEach(k => {
+      if(prodQty[k] > 0) prodRevPerUnit[k] = prodRev[k] / prodQty[k];
+    });
+    let arrRevPerUnit = Object.keys(prodRevPerUnit).map(k => ({
+      id: k,
+      name: PR.find(p=>p.id===parseInt(k))?.n,
+      val: prodRevPerUnit[k]
+    })).sort((a,b)=>b.val-a.val);
+
     let arrProdQty = Object.keys(prodQty).map(k => ({id: k, name: PR.find(p=>p.id===parseInt(k))?.n, val: prodQty[k]})).sort((a,b)=>b.val-a.val);
     let arrProdRev = Object.keys(prodRev).map(k => ({id: k, name: PR.find(p=>p.id===parseInt(k))?.n, val: prodRev[k]})).sort((a,b)=>b.val-a.val);
     let arrCustFreq = Object.keys(custRev).map(k => ({mob: k, name: custRev[k].name, val: custRev[k].cnt})).sort((a,b)=>b.val-a.val);
@@ -2022,6 +2067,7 @@ function rc(){
         + '</div>'
         + insightCard('Most Moving Product', topProdQty, topProdQtyVal + ' units', 'insight_top_qty', '📦')
         + insightCard('Highest Revenue Product', topProdRev, topProdRevVal, 'insight_top_rev', '💰')
+        + insightCard('Highest ₹ per Unit', arrRevPerUnit[0]?arrRevPerUnit[0].name:'N/A', arrRevPerUnit[0]?'₹'+Math.round(arrRevPerUnit[0].val)+'/unit':'₹0', 'insight_rev_per_unit', '🏷️')
         + insightCard('Repeat Customers', topCustFreq, topCustFreqVal, 'insight_cust_freq', '🔁')
         + insightCard('Highest Revenue Customer', topCustRev, topCustRevVal, 'insight_cust_rev', '⭐')
         + insightCard('Most Expensive Category', topExp, topExpVal, 'insight_exp', '📉')
@@ -2030,6 +2076,8 @@ function rc(){
       el.innerHTML = insightList('Most Moving Products', arrProdQty, '', ' units', Math.round);
     } else if (vw === 'insight_top_rev') {
       el.innerHTML = insightList('Highest Revenue Products', arrProdRev, '₹', '', Math.round);
+    } else if (vw === 'insight_rev_per_unit') {
+      el.innerHTML = insightList('Highest ₹ per Unit', arrRevPerUnit, '₹', '/unit', v=>Math.round(v));
     } else if (vw === 'insight_cust_freq') {
       el.innerHTML = insightList('Repeat Customers', arrCustFreq, '', ' orders', Math.round);
     } else if (vw === 'insight_cust_rev') {
@@ -2321,14 +2369,47 @@ function rc(){
         </div>`).join("")}
     </div>`;
   } else if(pg==="Customers"){
-    el.innerHTML=`<div class="main"><div class="pg-title">Customers</div>
-      <div class="sl">${custs.length} customer${custs.length!==1?"s":""} registered</div>
-      ${custs.length===0?`<div class="em"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg><div class="et">No customers yet</div><div style="font-size:13px;font-weight:500;">Auto-saved when you enter an order</div></div>`
-      :custs.map(c=>`<div class="ccrd"><div class="cav">${c.name[0]}</div>
-        <div><div style="font-size:14px;font-weight:800;color:var(--text-dark);">${c.name}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;font-weight:600;">+91 ${c.mob}</div></div>
-        <div style="margin-left:auto;font-size:11px;padding:3px 10px;border-radius:20px;background:var(--pink-pale);color:var(--pink);border:1.5px solid var(--pink-border);font-weight:800;">${c.cnt} order${c.cnt!==1?"s":""}</div>
-      </div>`).join("")}</div>`;
+    if(custEditModal.open){
+      el.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:flex-end;">
+        <div style="background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;box-sizing:border-box;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+            <div style="font-size:16px;font-weight:800;color:#111;flex:1;">Edit Customer</div>
+            <button onclick="custEditModal.open=false;render();" style="background:none;border:none;font-size:22px;color:#888;cursor:pointer;line-height:1;">✕</button>
+          </div>
+          <div class="fg"><label class="fl">Name</label>
+            <input type="text" class="fi" value="${custEditModal.name}" oninput="custEditModal.name=this.value" placeholder="Customer name"/>
+          </div>
+          <div class="fg"><label class="fl">Phone</label>
+            <input type="tel" class="fi" value="${custEditModal.mob}" oninput="custEditModal.mob=this.value" placeholder="10-digit mobile"/>
+          </div>
+          <button onclick="saveCustEdit()" style="width:100%;margin-top:10px;padding:14px;background:var(--pink);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;">Save Changes</button>
+          <button onclick="custEditModal.open=false;render();" style="width:100%;margin-top:8px;padding:12px;background:#f5f5f5;color:#666;border:none;border-radius:14px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">Cancel</button>
+        </div>
+      </div>`;return;
+    }
+    const sortedCusts = custs.slice().sort((a,b)=>a.name.localeCompare(b.name));
+    const q = custSearch.toLowerCase();
+    const filteredCusts = q ? sortedCusts.filter(c=>c.name.toLowerCase().includes(q)||c.mob.includes(q)) : sortedCusts;
+    el.innerHTML=`<div class="main">
+      <div class="pg-title">Customers</div>
+      <div style="position:relative;margin-bottom:12px;">
+        <input type="text" class="fi" placeholder="Search by name or phone…" value="${custSearch}"
+          oninput="custSearch=this.value;render();"
+          style="padding-left:36px;"/>
+        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      </div>
+      <div class="sl">${filteredCusts.length} of ${custs.length} customer${custs.length!==1?"s":""}</div>
+      ${filteredCusts.length===0?`<div class="em"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg><div class="et">${custs.length===0?'No customers yet':'No matches found'}</div><div style="font-size:13px;font-weight:500;">${custs.length===0?'Auto-saved when you enter an order':'Try a different name or number'}</div></div>`
+      :filteredCusts.map(c=>`<div class="ccrd">
+        <div class="cav">${c.name[0]}</div>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:800;color:var(--text-dark);">${c.name}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;font-weight:600;">+91 ${c.mob}</div>
+        </div>
+        <div style="font-size:11px;padding:3px 10px;border-radius:20px;background:var(--pink-pale);color:var(--pink);border:1.5px solid var(--pink-border);font-weight:800;margin-right:8px;">${c.cnt||0} order${(c.cnt||0)!==1?"s":""}</div>
+        <button onclick="openCustEdit('${c.mob}')" style="background:var(--lavender);border:none;border-radius:10px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text-dark);font-family:inherit;">Edit</button>
+      </div>`).join("")}
+    </div>`;
   } else if(pg==="Rate Adjustment Logs"){
     el.innerHTML=`<div class="main">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
