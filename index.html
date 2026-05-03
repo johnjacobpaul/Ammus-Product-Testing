@@ -1736,11 +1736,11 @@ function rc(){
         const cashInflow = cfOrds.reduce((sum,o)=>sum+(o.cashPaid!==undefined?o.cashPaid:(o.payMethod==='cash'?(o.amtPaid||o.total):0)),0);
         const inflow = cfOrds.reduce((sum, o) => sum + (o.amtPaid||o.total), 0) + miscInflow;
         const outflow = cfExps.reduce((sum, x) => sum + x.amt, 0);
-        // Business Profit adds back personal/household costs (not true business expenses)
+        // Business Profit: (Inflow - Misc Income) - Outflow + Personal + Grocery & Snacks
         const personalExp = cfExps.filter(e=>e.cat==='Personal').reduce((s,e)=>s+e.amt,0);
-        const groceryExp  = cfExps.filter(e=>e.cat==='Grocery & Household').reduce((s,e)=>s+e.amt,0);
-        const businessProfit = inflow - outflow + personalExp + groceryExp;
-        const profitPct = inflow > 0 ? Math.round(businessProfit / inflow * 100) : 0;
+        const groceryExp  = cfExps.filter(e=>e.cat==='Grocery & Snacks').reduce((s,e)=>s+e.amt,0);
+        const businessProfit = (inflow - miscInflow) - outflow + personalExp + groceryExp;
+        const profitPct = (inflow - miscInflow) > 0 ? Math.round(businessProfit / (inflow - miscInflow) * 100) : 0;
 
         // Donut chart maths
         const donutTotal = gpayInflow + cashInflow + miscInflow;
@@ -2067,7 +2067,6 @@ function rc(){
         + '</div>'
         + insightCard('Most Moving Product', topProdQty, topProdQtyVal + ' units', 'insight_top_qty', '📦')
         + insightCard('Highest Revenue Product', topProdRev, topProdRevVal, 'insight_top_rev', '💰')
-        + insightCard('Highest ₹ per Unit', arrRevPerUnit[0]?arrRevPerUnit[0].name:'N/A', arrRevPerUnit[0]?'₹'+Math.round(arrRevPerUnit[0].val)+'/unit':'₹0', 'insight_rev_per_unit', '🏷️')
         + insightCard('Repeat Customers', topCustFreq, topCustFreqVal, 'insight_cust_freq', '🔁')
         + insightCard('Highest Revenue Customer', topCustRev, topCustRevVal, 'insight_cust_rev', '⭐')
         + insightCard('Most Expensive Category', topExp, topExpVal, 'insight_exp', '📉')
@@ -2410,6 +2409,8 @@ function rc(){
         <button onclick="openCustEdit('${c.mob}')" style="background:var(--lavender);border:none;border-radius:10px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text-dark);font-family:inherit;">Edit</button>
       </div>`).join("")}
     </div>`;
+    const _si = el.querySelector('input[type=text]');
+    if(_si){ _si.focus(); _si.setSelectionRange(custSearch.length, custSearch.length); }
   } else if(pg==="Rate Adjustment Logs"){
     el.innerHTML=`<div class="main">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
