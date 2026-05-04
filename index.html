@@ -288,7 +288,7 @@ body { background: #e0d5e9; overflow: hidden; }
       <button class="menu-item" onclick="spMenu('Rate Adjustment Logs')">Rate Adjustment Logs</button>
       <button class="menu-item" onclick="spMenu('Export / Import Data')">Export / Import Data</button>
       <button class="menu-item" onclick="spMenu('Reset App')">Reset App</button>
-      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">v5.2.1 | 03.05.2026</div>
+      <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.04em;">v5.2.2 | 04.05.2026</div>
     </div>
 
     <div class="hdr">
@@ -562,6 +562,7 @@ let custSearch = '';
 let custEditModal = {open:false, origMob:'', name:'', mob:''};
 let editingOrder=null;
 let exForm={id:"",date:"",cat:"Labour - Annamma",mode:"cash",amt:"",desc:""};
+let expEditModal={open:false,id:'',date:'',cat:'',mode:'cash',amt:'',desc:''};
 let dcbForm={id:"",date:"",amt:""};
 let bankDcbForm={id:"",date:"",amt:""};
 let payModal={open:false,orderId:"",selected:"",payDate:"",payAmt:""};
@@ -717,6 +718,18 @@ function saveExpense(){
   stk("Expense logged!","ok");vw="home";render();
 }
 function deleteExpense(id){exps=exps.filter(e=>e.id!==id);scheduleSave();stk("Expense deleted","ok");render();}
+function openExpenseEdit(id){const e=exps.find(x=>x.id===id);if(!e)return;expEditModal={open:true,id:e.id,date:e.date,cat:e.cat,mode:e.mode,amt:String(e.amt),desc:e.desc||''};render();}
+function saveExpenseEdit(){
+  if(!expEditModal.amt||isNaN(expEditModal.amt)){stk('Please enter a valid amount','err');return;}
+  if(expEditModal.cat==='Personal'&&!expEditModal.desc.trim()){stk('Please add a description for personal expenses','err');return;}
+  const idx=exps.findIndex(e=>e.id===expEditModal.id);
+  if(idx===-1){stk('Expense not found','err');return;}
+  exps[idx]={...exps[idx],date:expEditModal.date,cat:expEditModal.cat,mode:expEditModal.mode,amt:parseFloat(expEditModal.amt),desc:expEditModal.desc};
+  scheduleSave();
+  expEditModal={open:false,id:'',date:'',cat:'',mode:'cash',amt:'',desc:''};
+  stk('Expense updated','ok');
+  render();
+}
 
 function openDcbForm(){dcbForm={id:"DCB-"+gid().replace("ID-",""),date:tdi(),amt:""};vw="dcb_cash";render();}
 function saveDcb(){
@@ -1963,13 +1976,21 @@ function rc(){
       Q3: [new Date(yr,6,1), new Date(yr,8,30,23,59,59)],
       Q4: [new Date(yr,9,1), new Date(yr,11,31,23,59,59)],
     };
-    const filteredOrds = insightQtr === 'all' ? ords : ords.filter(o => {
+    const months3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const isMonthFilter = months3.includes(insightQtr);
+    const filteredOrds = (insightQtr === 'all') ? ords : ords.filter(o => {
       const d = parseDisplayDate(o.date);
+      if(isMonthFilter){
+        return !isNaN(d) && d.getFullYear()===yr && d.getMonth()===months3.indexOf(insightQtr);
+      }
       const [s,e] = qtrRanges[insightQtr];
       return !isNaN(d) && d >= s && d <= e;
     });
-    const filteredExps = insightQtr === 'all' ? exps : exps.filter(e => {
+    const filteredExps = (insightQtr === 'all') ? exps : exps.filter(e => {
       const d = new Date(e.date);
+      if(isMonthFilter){
+        return !isNaN(d) && d.getFullYear()===yr && d.getMonth()===months3.indexOf(insightQtr);
+      }
       const [s,en] = qtrRanges[insightQtr];
       return !isNaN(d) && d >= s && d <= en;
     });
@@ -2056,7 +2077,7 @@ function rc(){
       const topCustRevVal = arrCustRev[0] ? "₹" + Math.round(arrCustRev[0].val) : "₹0";
       const topExp = arrExpRev[0] ? arrExpRev[0].cat : "N/A";
       const topExpVal = arrExpRev[0] ? "₹" + Math.round(arrExpRev[0].val) : "₹0";
-      const qtrLabel = insightQtr === 'all' ? 'All Time' : insightQtr + ' ' + yr;
+      const qtrLabel = insightQtr === 'all' ? 'All Time' : isMonthFilter ? insightQtr + ' ' + yr : insightQtr + ' ' + yr;
 
       el.innerHTML = '<div class="main">'
         + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">'
@@ -2064,12 +2085,18 @@ function rc(){
         + '<div><div style="font-size:17px;font-weight:800;color:var(--text-dark);">Business Insights</div>'
         + '<div style="font-size:11px;color:var(--text-muted);font-weight:600;">Showing: ' + qtrLabel + '</div></div>'
         + '</div>'
-        + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">'
         + '<button style="' + qtrBtnStyle('all') + '" onclick="insightQtr=\'all\';render();">All</button>'
         + '<button style="' + qtrBtnStyle('Q1') + '" onclick="insightQtr=\'Q1\';render();">Q1</button>'
         + '<button style="' + qtrBtnStyle('Q2') + '" onclick="insightQtr=\'Q2\';render();">Q2</button>'
         + '<button style="' + qtrBtnStyle('Q3') + '" onclick="insightQtr=\'Q3\';render();">Q3</button>'
         + '<button style="' + qtrBtnStyle('Q4') + '" onclick="insightQtr=\'Q4\';render();">Q4</button>'
+        + '<select onchange="insightQtr=this.value;render();" style="padding:6px 10px;border-radius:20px;border:1.5px solid '
+        + (['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].includes(insightQtr)?'var(--pink);background:var(--pink);color:#fff;':'var(--border);background:#fff;color:var(--text-dark);')
+        + 'font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;">'
+        + '<option value="" disabled ' + (!['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].includes(insightQtr)?'selected':'') + '>Month</option>'
+        + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map(m=>`<option value="${m}" ${insightQtr===m?'selected':''}>${m}</option>`).join('')
+        + '</select>'
         + '</div>'
         + '<div class="card" style="display:flex;align-items:center;gap:16px;margin-bottom:2px;">'
         + '<div class="ico" style="background:#f0fdf4;color:#25d366;font-size:20px;">💬</div>'
@@ -2374,11 +2401,39 @@ function rc(){
             </div>
             <div style="text-align:right;">
               <div style="font-size:16px;font-weight:800;color:var(--pink);">₹${e.amt}</div>
-              <button style="margin-top:6px;background:#fee2e2;color:#991b1b;border:none;padding:5px 10px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;" onclick="deleteExpense('${e.id}')">Delete</button>
+              <div style="display:flex;gap:6px;margin-top:6px;justify-content:flex-end;">
+                <button style="background:var(--lavender);color:var(--text-dark);border:none;padding:5px 10px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;" onclick="openExpenseEdit('${e.id}')">Edit</button>
+                <button style="background:#fee2e2;color:#991b1b;border:none;padding:5px 10px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;" onclick="deleteExpense('${e.id}')">Delete</button>
+              </div>
             </div>
           </div>
         </div>`).join("")}
-    </div>`;
+    </div>
+    ${expEditModal.open?`<div style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:flex-end;">
+      <div style="background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;box-sizing:border-box;max-height:85vh;overflow-y:auto;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+          <div style="font-size:16px;font-weight:800;color:#111;flex:1;">Edit Expense</div>
+          <button onclick="expEditModal.open=false;render();" style="background:none;border:none;font-size:22px;color:#888;cursor:pointer;line-height:1;">✕</button>
+        </div>
+        <div class="fg"><label class="fl">Date</label><input type="date" class="fi" value="${expEditModal.date}" onchange="expEditModal.date=this.value"/></div>
+        <div class="fg"><label class="fl">Category</label>
+          <select class="fi" onchange="expEditModal.cat=this.value;render()">
+            ${expCats.map(c=>`<option value="${c}" ${expEditModal.cat===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>
+        ${expEditModal.cat==='Personal'?`<div class="fg"><label class="fl">Description <span style="color:var(--pink);font-size:11px;font-weight:800;">required</span></label><input type="text" class="fi" placeholder="What was this expense for?" value="${expEditModal.desc}" oninput="expEditModal.desc=this.value"/></div>`:''}
+        <div class="fg"><label class="fl">Mode</label>
+          <select class="fi" onchange="expEditModal.mode=this.value">
+            <option value="cash" ${expEditModal.mode==='cash'?'selected':''}>Cash</option>
+            <option value="gpay" ${expEditModal.mode==='gpay'?'selected':''}>GPay</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Amount (₹)</label><input type="number" class="fi" value="${expEditModal.amt}" oninput="expEditModal.amt=this.value"/></div>
+        <button onclick="saveExpenseEdit()" style="width:100%;margin-top:10px;padding:14px;background:var(--pink);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;">Save Changes</button>
+        <button onclick="expEditModal.open=false;render();" style="width:100%;margin-top:8px;padding:12px;background:#f5f5f5;color:#666;border:none;border-radius:14px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">Cancel</button>
+      </div>
+    </div>`:''}
+  `;
   } else if(pg==="Customers"){
     if(custEditModal.open){
       el.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:flex-end;">
