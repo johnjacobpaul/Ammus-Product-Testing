@@ -360,7 +360,7 @@ async function loadData(){
     if(d.dcbList) dcbList = d.dcbList;
     if(d.bankDcbList) bankDcbList = d.bankDcbList;
     if(d.miscBankIncomes) miscBankIncomes = d.miscBankIncomes;
-    if(d.expCats){ expCats = d.expCats; ["Variance Reconciliation","Discount","Missing Payments","Grocery & Household"].forEach(c=>{ if(!expCats.includes(c)) expCats.push(c); }); }
+    if(d.expCats){ expCats = d.expCats; ["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount","Missing Payments","Grocery & Household"].forEach(c=>{ if(!expCats.includes(c)) expCats.push(c); }); }
     if(d.openBals) openBals = d.openBals;
     if(d.rateAdjLogs) rateAdjLogs = d.rateAdjLogs;
     if(d.PR && d.PR.length) d.PR.forEach(p=>{ const ex=PR.find(x=>x.id===p.id); if(ex){ if(p.userModified) ex.p=p.p; ex.userModified=p.userModified; } else PR.push(p); });
@@ -409,7 +409,7 @@ function importData(){
       if(d.dcbList) dcbList = d.dcbList;
       if(d.bankDcbList) bankDcbList = d.bankDcbList;
       if(d.miscBankIncomes) miscBankIncomes = d.miscBankIncomes;
-      if(d.expCats){ expCats = d.expCats; ["Variance Reconciliation","Discount","Missing Payments","Grocery & Household"].forEach(c=>{ if(!expCats.includes(c)) expCats.push(c); }); }
+      if(d.expCats){ expCats = d.expCats; ["Labour - Annamma","Labour - Sheeba","Labour - Leela","Labour - Jancy","Utilities - Gas","Utilities - Elec","Personal","Raw Materials","Variance Reconciliation","Discount","Missing Payments","Grocery & Household"].forEach(c=>{ if(!expCats.includes(c)) expCats.push(c); }); }
       if(d.openBals) openBals = d.openBals;
       if(d.rateAdjLogs) rateAdjLogs = d.rateAdjLogs;
       if(d.PR && d.PR.length) d.PR.forEach(p=>{ const ex=PR.find(x=>x.id===p.id); if(ex){ if(p.userModified) ex.p=p.p; ex.userModified=p.userModified; } else PR.push(p); });
@@ -1701,7 +1701,6 @@ function rc(){
             if(!mStats[k]) mStats[k] = {in:0, out:0, misc:0, personal:0, grocery:0};
             mStats[k].out += e.amt;
             if(e.cat==='Personal') mStats[k].personal = (mStats[k].personal||0) + e.amt;
-            if(e.cat==='Grocery & Snacks') mStats[k].grocery = (mStats[k].grocery||0) + e.amt;
         });
 
         const sortedKeys = Object.keys(mStats).sort().reverse(); 
@@ -1714,7 +1713,7 @@ function rc(){
           ${sortedKeys.length === 0 ? `<div class="em"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 9h6M9 13h4"/></svg><div class="et">No data yet</div></div>` : sortedKeys.map(k => {
               const s = mStats[k];
               const net = s.in - s.out;
-              const bProfit = (s.in - (s.misc||0)) - s.out + (s.personal||0) + (s.grocery||0);
+              const bProfit = (s.in - (s.misc||0)) - s.out + (s.personal||0);
               const bPct = (s.in - (s.misc||0)) > 0 ? Math.round(bProfit / (s.in - (s.misc||0)) * 100) : 0;
               return `<div class="ocrd" style="padding:16px;">
                 <div style="font-size:15px;font-weight:800;color:var(--text-dark);margin-bottom:12px;">${getMonthName(k)}</div>
@@ -1763,8 +1762,7 @@ function rc(){
         const outflow = cfExps.reduce((sum, x) => sum + x.amt, 0);
         // Business Profit: (Inflow - Misc Income) - Outflow + Personal + Grocery & Snacks
         const personalExp = cfExps.filter(e=>e.cat==='Personal').reduce((s,e)=>s+e.amt,0);
-        const groceryExp  = cfExps.filter(e=>e.cat==='Grocery & Snacks').reduce((s,e)=>s+e.amt,0);
-        const businessProfit = (inflow - miscInflow) - outflow + personalExp + groceryExp;
+        const businessProfit = (inflow - miscInflow) - outflow + personalExp;
         const profitPct = (inflow - miscInflow) > 0 ? Math.round(businessProfit / (inflow - miscInflow) * 100) : 0;
 
         // Donut chart maths
